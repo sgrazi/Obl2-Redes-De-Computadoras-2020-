@@ -4,6 +4,9 @@ import _thread
 import hashlib
 import random
 
+
+#MODIFICO MARTIN
+
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
 dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
