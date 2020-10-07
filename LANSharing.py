@@ -23,15 +23,21 @@ def anuncio(scktAnuncio):
         time.sleep(30)
         time.sleep(random.uniform(0.5,1))
         anuncio = "ANNOUNCE\n"
-        for key in archivosDisponibles:
-            anuncio += archivosDisponibles[key][0] + "\t" + str(archivosDisponibles[key][1]) + "\t" + str(key) +"\n"
+        for key in archivosLocales:
+            anuncio += archivosLocales[key][0] + "\t" + str(archivosLocales[key][1]) + "\t" + str(key) +"\n"
         scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
+
+def verCompartidos():
+    print("Disponibles en la red para descargar:")
 
 def ofrecer():
     print("Indique nombre del archivo que desea ofrecer:\n")
     nombreA = input()
+
     if(os.path.isfile('./Archivos/'+nombreA)):
-        archivosDisponibles[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
+        archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
+
+
 
 
 if __name__ == '__main__':
@@ -41,7 +47,7 @@ if __name__ == '__main__':
     scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
     #archivos locales
-    archivosDisponibles = {}
+    archivosLocales = {}
 
     try:
         _thread.start_new_thread(anuncio,(scktAnuncio, ))
@@ -60,7 +66,7 @@ if __name__ == '__main__':
         accion = input()
 
         if (accion == "1"):
-            print(1)
+            verCompartidos()
         else:
             if (accion == "2"):
                 print(2)
