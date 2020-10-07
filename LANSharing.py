@@ -4,6 +4,7 @@ import _thread
 import hashlib
 import random
 import os.path
+from threading import Thread, Lock
 
 #MODIFICO MARTIN
 
@@ -18,7 +19,7 @@ def md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-def anuncio(scktAnuncio):
+def enviarAnuncios(scktAnuncio):
     while True:
         time.sleep(30)
         time.sleep(random.uniform(0.5,1))
@@ -26,6 +27,12 @@ def anuncio(scktAnuncio):
         for key in archivosLocales:
             anuncio += archivosLocales[key][0] + "\t" + str(archivosLocales[key][1]) + "\t" + str(key) +"\n"
         scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
+
+def recibirAnuncios(scktEscucha):
+    while True:
+        mensaje = scktEscucha.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
+        print(mensaje.decode())
+
 
 def verCompartidos():
     print("Disponibles en la red para descargar:")
@@ -46,11 +53,18 @@ if __name__ == '__main__':
     scktAnuncio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
+    scktEscucha = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    scktEscucha.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    scktEscucha.bind(("", 2020))
+
+    #archivos de Red
+    archivosDeRed = {}
     #archivos locales
     archivosLocales = {}
 
     try:
-        _thread.start_new_thread(anuncio,(scktAnuncio, ))
+        _thread.start_new_thread(enviarAnuncios,(scktAnuncio, ))
+        _thread.start_new_thread(recibirAnuncios,(scktEscucha, ))
     except:
         print ("Error: unable to start thread")
 
