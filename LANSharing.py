@@ -9,11 +9,12 @@ from threading import Lock  #mutuoexcluir el acceso a estructuras de datos
 
 #Posiciones en lo recibido por anuncios
 fileName=0
+ttl=1
 fileSize=1
 fileMd5=2
 
 #Posiciones en los diccionarios
-Seeders=2
+Seeders=1
 
 myIP="25.91.200.244"
 dirFran= "25.92.62.202"
@@ -46,8 +47,8 @@ def enviarAnuncios(scktAnuncio):
         archivosABorrar=[]
         for archivo in archivosDeRed: #archivo=MD5=key
             for IP in archivosDeRed[archivo][Seeders]: # IP=key
-                if(archivosDeRed[archivo][Seeders][IP]>1): #Value=TTL
-                    archivosDeRed[archivo][Seeders][IP]=archivosDeRed[archivo][Seeders][IP]-1
+                if(archivosDeRed[archivo][Seeders][IP][ttl]>1): #Value=TTL
+                    archivosDeRed[archivo][Seeders][IP][ttl]=archivosDeRed[archivo][Seeders][IP][ttl]-1
                 else: #Se borra el seeder puesto no emitió por más de 90 segundos
                     seedersABorrar.append(IP)
                 #del archivosDeRed[archivo][Seeders][IP]
@@ -67,8 +68,8 @@ def recibirAnuncios(scktEscucha):
     while True:
         mensaje,addr = scktEscucha.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
-            lineas=re.split(r'\n+', mensaje.decode())
+        #if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
+        lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="ANNOUNCE"):
             iterLinea = iter(lineas)
@@ -79,9 +80,9 @@ def recibirAnuncios(scktEscucha):
                 if( datos[0]!=''): # para evitar la última linea que viene vacía
                     mutexRed.acquire() 
                     if( datos[fileMd5] in archivosDeRed): #sólo debemos agregar/actualizar el nuevo/existente seeder (indiferente para el diccionario de seeders)
-                        archivosDeRed[datos[fileMd5]][Seeders][addr[0]]=3 #addr[0]=dirIP y ttl=3   
+                        archivosDeRed[datos[fileMd5]][Seeders][addr[0]]=[datos[fileName],3] #addr[0]=dirIP y ttl=3   
                     else:#agregar nuevo archivo
-                        archivosDeRed[datos[fileMd5]]=[datos[fileName],datos[fileSize],{addr[0]:3}]
+                        archivosDeRed[datos[fileMd5]]=[datos[fileSize],{addr[0]:[datos[fileName],3]}]
                     mutexRed.release()
 
         if(lineas[0]=="REQUEST"):
@@ -91,11 +92,31 @@ def recibirAnuncios(scktEscucha):
 
 def verCompartidos():
     print("Disponibles en la red para descargar:")
+    seleccion={}
+    i=0
+    nombresExistentes=[] #para no repetir los nombres de archivo con distintos seeders
+    mutexRed.acquire()
+    for archivo in archivosDeRed: #archivo=MD5=key
+        seleccion[i]=archivo
+        print(str(i)+" - "+str(archivosDeRed[archivo][0])+" ",end="") #0=fileSize
+        for IP in archivosDeRed[archivo][Seeders]:
+            nombre=archivosDeRed[archivo][Seeders][IP][fileName]
+            if(nombre not in nombresExistentes):
+                print(nombre,end=" ")
+                nombresExistentes.append(nombre)
+        nombresExistentes.clear()    
+        print("")
+        i+=1
+    mutexRed.release()
+    print("Indique Nro del archivo que desea descargar.\nDe lo contrario ingrese cualuquier otra tecla para volver al menu")
+    nroArchivo =input()
+    if nroArchivo.isdigit():
+        if int(nroArchivo) in seleccion:
+            print("---DESCARGANDO----")
+           
 
-def ofrecer():
-    print("Indique nombre del archivo que desea ofrecer:\n")
-    nombreA = input()
 
+def ofrecer(nombreA):
     if(os.path.isfile('./Archivos/'+nombreA)):
         archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
 
@@ -113,10 +134,10 @@ if __name__ == '__main__':
     scktEscucha.bind(("", 2020))
 
     #archivos de Red
-    archivosDeRed = {}  #md5 : nombre , tamaño, {Seeders: ttl}
+    archivosDeRed = {}  #md5 : tamaño, {Seeders: FileName,ttl}
     mutexRed = Lock()
     #archivos locales
-    archivosLocales = {} #md5 : nombre , tamaño 
+    archivosLocales = {} #md5 : FileName , tamaño 
     mutexLocales = Lock()
 
     try:
@@ -143,6 +164,8 @@ if __name__ == '__main__':
                 print(2)
             else:
                 if (accion == "3"):
-                    ofrecer()
+                    print("Indique nombre del archivo que desea ofrecer:\n")
+                    nombreA = input()
+                    ofrecer(nombreA)
                 else:
                     salir = True
