@@ -14,9 +14,8 @@ fileMd5=2
 
 #Posiciones en los diccionarios
 Seeders=2
-ttls=3
 
-
+myIP="25.91.200.244"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
 dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
@@ -30,9 +29,9 @@ def md5(fname):
 
 def enviarAnuncios(scktAnuncio):
     while True:
-        time.sleep(5)
+        time.sleep(5)#30 seg
         time.sleep(random.uniform(0.5,1))
-        print(archivosDeRed)
+       
         if( bool(archivosLocales)): #archivosLocales no vacíos
             anuncio = "ANNOUNCE\n"
             mutexLocales.acquire() #mutuoexcluimos archivosLocales
@@ -40,13 +39,36 @@ def enviarAnuncios(scktAnuncio):
                 anuncio += archivosLocales[key][0] + "\t" + str(archivosLocales[key][1]) + "\t" + str(key) +"\n"
             mutexLocales.release() #liberamos archivosLocales
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
-            
+        #Actualización TTL
+        mutexRed.acquire() 
+        print(archivosDeRed)
+        seedersABorrar=[]
+        archivosABorrar=[]
+        for archivo in archivosDeRed: #archivo=MD5=key
+            for IP in archivosDeRed[archivo][Seeders]: # IP=key
+                if(archivosDeRed[archivo][Seeders][IP]>1): #Value=TTL
+                    archivosDeRed[archivo][Seeders][IP]=archivosDeRed[archivo][Seeders][IP]-1
+                else: #Se borra el seeder puesto no emitió por más de 90 segundos
+                    seedersABorrar.append(IP)
+                #del archivosDeRed[archivo][Seeders][IP]
+                if(len(archivosDeRed[archivo][Seeders])==len(seedersABorrar)): #Se eliminó el último seeder del archivo, corresponde sacarlo de la lista
+                    archivosABorrar.append(archivo)
+                    #del archivosDeRed[archivo]
+            for IP in seedersABorrar:
+                del archivosDeRed[archivo][Seeders][IP]
+            seedersABorrar.clear()
+        for archivo in archivosABorrar:
+            del archivosDeRed[archivo]
+        archivosABorrar.clear()
+
+        mutexRed.release()
 
 def recibirAnuncios(scktEscucha):
     while True:
         mensaje,addr = scktEscucha.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
-        #if(addr==socket.gethostbyname("localhost")): #no queremos escuchar nuestro propio broadcast
-        lineas=re.split(r'\n+', mensaje.decode())
+        lineas=["SinLectura"]
+        if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
+            lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="ANNOUNCE"):
             iterLinea = iter(lineas)
@@ -56,18 +78,11 @@ def recibirAnuncios(scktEscucha):
                 #print("causa de error:"+str(datos))
                 if( datos[0]!=''): # para evitar la última linea que viene vacía
                     mutexRed.acquire() 
-                    if( datos[fileMd5] in archivosDeRed): #sólo debemos agregar el nuevo seeder
-                        if(not (addr[0] in archivosDeRed[datos[fileMd5]][Seeders]) ): # efectivamente es nuevo
-                            archivosDeRed[datos[fileMd5]][Seeders].append(addr[0])
-                            archivosDeRed[datos[fileMd5]][ttls].append(3) 
-                        else: #seeder conocido, corresponde actualizar su ttl
-                            indexSeeder=archivosDeRed[datos[fileMd5]][Seeders].index(addr[0])
-                            archivosDeRed[datos[fileMd5]][ttls][indexSeeder]=3
+                    if( datos[fileMd5] in archivosDeRed): #sólo debemos agregar/actualizar el nuevo/existente seeder (indiferente para el diccionario de seeders)
+                        archivosDeRed[datos[fileMd5]][Seeders][addr[0]]=3 #addr[0]=dirIP y ttl=3   
                     else:#agregar nuevo archivo
-                        archivosDeRed[datos[fileMd5]]=[datos[fileName],datos[fileSize],[addr[0]],[3]]
+                        archivosDeRed[datos[fileMd5]]=[datos[fileName],datos[fileSize],{addr[0]:3}]
                     mutexRed.release()
-
-
 
         if(lineas[0]=="REQUEST"):
             print("retornar request")
@@ -98,7 +113,7 @@ if __name__ == '__main__':
     scktEscucha.bind(("", 2020))
 
     #archivos de Red
-    archivosDeRed = {}  #md5 : nombre , tamaño, Seeders[], ttl[]
+    archivosDeRed = {}  #md5 : nombre , tamaño, {Seeders: ttl}
     mutexRed = Lock()
     #archivos locales
     archivosLocales = {} #md5 : nombre , tamaño 
