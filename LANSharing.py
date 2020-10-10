@@ -90,10 +90,9 @@ def recibirAnuncios(scktEscucha):
 
         if(lineas[0]=="DOWNLOAD"): 
             sktDescarga = socket.socket()
-            sktDescarga.connect(addr[0],0) #que conecte en el puerto que pueda (en manos del SO)
+            sktDescarga.connect(addr[0],0 ) #que conecte en el puerto que pueda (en manos del SO)
             try:
-                _thread.start_new_thread(enviarAnuncios,(scktAnuncio, ))
-                _thread.start_new_thread(recibirAnuncios,(scktEscucha, ))
+                _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],sktDescarga) 
             except:
                 print ("Error: unable to start thread")
            
@@ -123,7 +122,12 @@ def verCompartidos():
     nroArchivo =input()
     if nroArchivo.isdigit():
         if int(nroArchivo) in seleccion:
-            print("---DESCARGANDO----")
+            selectedFileMd5=seleccion[int(nroArchivo)]
+            print("---Enviando Anuncio de descarga----")
+            mutexRed.acquire()
+            anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n0" #start=0 size=0 etapa de testing
+            mutexRed.release()
+            scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
            
 
 
