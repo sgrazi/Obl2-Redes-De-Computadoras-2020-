@@ -28,18 +28,24 @@ def md5(fname):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
+def generarAnuncio():
+    anuncio = "ANNOUNCE\n"
+    mutexLocales.acquire() #mutuoexcluimos archivosLocales
+    for key in archivosLocales:
+        anuncio += archivosLocales[key][0] + "\t" + str(archivosLocales[key][1]) + "\t" + str(key) +"\n"
+    mutexLocales.release() #liberamos archivosLocales
+    return anuncio
+
+
 def enviarAnuncios(scktAnuncio):
     while True:
-        time.sleep(5)#30 seg
+        time.sleep(30)#30 seg
         time.sleep(random.uniform(0.5,1))
        
         if( bool(archivosLocales)): #archivosLocales no vacíos
-            anuncio = "ANNOUNCE\n"
-            mutexLocales.acquire() #mutuoexcluimos archivosLocales
-            for key in archivosLocales:
-                anuncio += archivosLocales[key][0] + "\t" + str(archivosLocales[key][1]) + "\t" + str(key) +"\n"
-            mutexLocales.release() #liberamos archivosLocales
+            anuncio=generarAnuncio()
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
+
         #Actualización TTL
         mutexRed.acquire() 
         print(archivosDeRed)
@@ -86,16 +92,20 @@ def recibirAnuncios(scktEscucha):
                     mutexRed.release()
 
         if(lineas[0]=="REQUEST"):
-            print("retornar request")
-
+            anuncio=generarAnuncio()
+            scktAnuncio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+            scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            time.sleep(random.uniform(0,5))
+            scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
+    """
         if(lineas[0]=="DOWNLOAD"): 
             sktDescarga = socket.socket()
-            sktDescarga.connect(addr[0],0 ) #que conecte en el puerto que pueda (en manos del SO)
+            sktDescarga.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
             try:
                 _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],sktDescarga) 
             except:
                 print ("Error: unable to start thread")
-           
+         """  
 
 
 def verCompartidos():
@@ -128,6 +138,7 @@ def verCompartidos():
             anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n0" #start=0 size=0 etapa de testing
             mutexRed.release()
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
+            
            
 
 
@@ -161,6 +172,9 @@ if __name__ == '__main__':
     archivosLocales = {} #md5 : FileName , tamaño 
     mutexLocales = Lock()
 
+    #Request inicial
+    scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
+    
     try:
         _thread.start_new_thread(enviarAnuncios,(scktAnuncio, ))
         _thread.start_new_thread(recibirAnuncios,(scktEscucha, ))
