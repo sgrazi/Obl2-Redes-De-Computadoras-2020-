@@ -88,10 +88,20 @@ def recibirAnuncios(scktEscucha):
         if(lineas[0]=="REQUEST"):
             print("retornar request")
 
+        if(lineas[0]=="DOWNLOAD"): 
+            sktDescarga = socket.socket()
+            sktDescarga.connect(addr[0],0) #que conecte en el puerto que pueda (en manos del SO)
+            try:
+                _thread.start_new_thread(enviarAnuncios,(scktAnuncio, ))
+                _thread.start_new_thread(recibirAnuncios,(scktEscucha, ))
+            except:
+                print ("Error: unable to start thread")
+           
 
 
 def verCompartidos():
     print("Disponibles en la red para descargar:")
+    print("fileID - fielSize fileName1 fileName2 fileName3 ....")
     seleccion={}
     i=0
     nombresExistentes=[] #para no repetir los nombres de archivo con distintos seeders
@@ -107,6 +117,7 @@ def verCompartidos():
         nombresExistentes.clear()    
         print("")
         i+=1
+   # if seleccion.
     mutexRed.release()
     print("Indique Nro del archivo que desea descargar.\nDe lo contrario ingrese cualuquier otra tecla para volver al menu")
     nroArchivo =input()
@@ -120,6 +131,12 @@ def ofrecer(nombreA):
     if(os.path.isfile('./Archivos/'+nombreA)):
         archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
 
+
+
+def aceptarDescarga(md5,start,size,sktDescarga):
+     while True:
+        mensaje,addr = sktDescarga.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
+        print("\""+mensaje.decode()+"\" desde la IP: "+addr[0]+" y puerto: "+addr[1])
 
 
 
