@@ -30,7 +30,7 @@ def aceptarDescarga(md5,start,size,sktDescarga):
     mutexLocales.release() #liberamos archivosLocales
 
     with open(filePath, "rb") as f:
-        f.seek(start, 1)    
+        f.seek(start, 0)    
         piece =f.read(size)    
         #  if piece == "":
         #      break # end of file
@@ -101,12 +101,14 @@ def recibirSolicitudesDeDescargas(scktEscucha):
     scktEscucha.listen()
     while True:
         cliente,addr =scktEscucha.accept()
+        print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
         if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"): 
+            print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1])
             cliente = socket.socket()
             cliente.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
             try:
@@ -175,11 +177,13 @@ def verCompartidos():
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
             anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+            archivoEnBytes=""
             mutexRed.acquire()
-            #while not finished, keep looping
+            #while not finished, keep looping1
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key     
                 sktSeeder = socket.socket()
-                sktSeeder.connect((int(IP),"2020")) #que conecte en el puerto que pueda (en manos del SO)
+                print("Intentando conectar con: "+str(IP) )
+                sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
                 sktSeeder.send(anuncio.encode())
                 archivoEnBytes+=recibirDescarga(sktSeeder,tamDeBloque)
                 sktSeeder.close()
@@ -231,7 +235,7 @@ if __name__ == '__main__':
     scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
     
     try:
-        _thread.start_new_thread(recibirSolicitudesDeDescarga,(scktEscuchaTCP, ))
+        _thread.start_new_thread(recibirSolicitudesDeDescargas,(scktEscuchaTCP, ))
         _thread.start_new_thread(enviarAnuncios,(scktAnuncio, ))
         _thread.start_new_thread(recibirAnuncios,(scktEscuchaUDP, ))
     except:
