@@ -28,6 +28,7 @@ def aceptarDescarga(md5,start,size,sktDescarga):
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
     filePath ='Archivos/'+archivosLocales[md5][0]
     mutexLocales.release() #liberamos archivosLocales
+
     with open(filePath, "rb") as f:
         f.seek(start, 1)    
         piece =f.read(size)    
@@ -35,13 +36,14 @@ def aceptarDescarga(md5,start,size,sktDescarga):
         #      break # end of file
         sktDescarga.sendall(piece.encode())   
 
-def recibirDescarga(sock,count): #en que socket y cuantos bytes
+def recibirDescarga(sock,count): #se espera un DOWNLOAD OK\n, seguido de el bloque
     buf = b''
     while count:
         newbuf = sock.recv(count)
         if not newbuf: return None
         buf += newbuf
         count -= len(newbuf)
+    buf = buf.split("\n")[1:]
     return buf
 
 def md5(fname):
@@ -62,7 +64,7 @@ def generarAnuncio():
 
 def enviarAnuncios(scktAnuncio):
     while True:
-        time.sleep(50)#30 seg
+        time.sleep(10)#30 seg
         print("---------------anunciandooooo----------------")
         time.sleep(random.uniform(0.5,1))
        
@@ -71,6 +73,7 @@ def enviarAnuncios(scktAnuncio):
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
 
         #Actualización TTL
+        
         mutexRed.acquire() 
         print(archivosDeRed)
         seedersABorrar=[]
@@ -93,6 +96,25 @@ def enviarAnuncios(scktAnuncio):
         archivosABorrar.clear()
 
         mutexRed.release()
+
+def recibirSolicitudesDeDescargas(scktEscucha):
+    scktEscucha.listen()
+    while True:
+        cliente,addr =scktEscucha.accept()
+        mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
+        lineas=["SinLectura"]
+        if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
+            lineas=re.split(r'\n+', mensaje.decode())
+
+        if(lineas[0]=="DOWNLOAD"): 
+            cliente = socket.socket()
+            cliente.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
+            try:
+                _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],cliente) 
+            except:
+                print ("Error: unable to start thread")
+            cliente.close()
+           
 
 def recibirAnuncios(scktEscucha):
     while True:
@@ -122,14 +144,7 @@ def recibirAnuncios(scktEscucha):
             time.sleep(random.uniform(0,5))
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
     
-        if(lineas[0]=="DOWNLOAD"): 
-            sktDescarga = socket.socket()
-            sktDescarga.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
-            try:
-                _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],sktDescarga) 
-            except:
-                print ("Error: unable to start thread")
-           
+      
 
 
 def verCompartidos():
@@ -160,12 +175,15 @@ def verCompartidos():
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
             anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+            mutexRed.acquire()
             #while not finished, keep looping
-            for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key
-                scktAnuncio.sendto((anuncio).encode(),( archivosDeRed[selectedFileMd5][Seeders][IP],2020))
+            for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key     
                 sktSeeder = socket.socket()
-                sktSeeder.connect((IP,"")) #que conecte en el puerto que pueda (en manos del SO)
+                sktSeeder.connect((int(IP),"2020")) #que conecte en el puerto que pueda (en manos del SO)
+                sktSeeder.send(anuncio.encode())
                 archivoEnBytes+=recibirDescarga(sktSeeder,tamDeBloque)
+                sktSeeder.close()
+            mutexRed.release()
 
             mutexRed.acquire()
             nombreDelArchivoNuevo=archivosDeRed[selectedFileMd5][fileName]
@@ -195,9 +213,12 @@ if __name__ == '__main__':
     scktAnuncio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-    scktEscucha = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    scktEscucha.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    scktEscucha.bind(("", 2020))
+    scktEscuchaUDP = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    scktEscuchaUDP.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    scktEscuchaUDP.bind(("", 2020))
+
+    scktEscuchaTCP = socket.socket()
+    scktEscuchaTCP.bind(("", 2020))
 
     #archivos de Red
     archivosDeRed = {}  #md5 : tamaño, {Seeders: FileName,ttl}
@@ -210,8 +231,9 @@ if __name__ == '__main__':
     scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
     
     try:
+        _thread.start_new_thread(recibirSolicitudesDeDescarga,(scktEscuchaTCP, ))
         _thread.start_new_thread(enviarAnuncios,(scktAnuncio, ))
-        _thread.start_new_thread(recibirAnuncios,(scktEscucha, ))
+        _thread.start_new_thread(recibirAnuncios,(scktEscuchaUDP, ))
     except:
         print ("Error: unable to start thread")
 
