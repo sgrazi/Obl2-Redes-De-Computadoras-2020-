@@ -1,5 +1,6 @@
 import socket
 import time
+import struct
 import _thread 
 import hashlib  #md5
 import random   #espera aleatorea de tiempos
@@ -13,6 +14,8 @@ ttl=1
 fileSize=1
 fileMd5=2
 
+#tamaño de bloquen de distribución 256kb
+tamDeBloque=10
 #Posiciones en los diccionarios
 Seeders=1
 
@@ -20,6 +23,26 @@ myIP="25.91.200.244"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
 dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
+
+def aceptarDescarga(md5,start,size,sktDescarga):
+    mutexLocales.acquire() #mutuoexcluimos archivosLocales
+    filePath ='Archivos/'+archivosLocales[md5][0]
+    mutexLocales.release() #liberamos archivosLocales
+    with open(filePath, "rb") as f:
+        f.seek(start, 1)    
+        piece =f.read(size)    
+        #  if piece == "":
+        #      break # end of file
+        sktDescarga.sendall(piece.encode())   
+
+def recibirDescarga(sock,count): #en que socket y cuantos bytes
+    buf = b''
+    while count:
+        newbuf = sock.recv(count)
+        if not newbuf: return None
+        buf += newbuf
+        count -= len(newbuf)
+    return buf
 
 def md5(fname):
     hash_md5 = hashlib.md5()
@@ -39,7 +62,8 @@ def generarAnuncio():
 
 def enviarAnuncios(scktAnuncio):
     while True:
-        time.sleep(30)#30 seg
+        time.sleep(50)#30 seg
+        print("---------------anunciandooooo----------------")
         time.sleep(random.uniform(0.5,1))
        
         if( bool(archivosLocales)): #archivosLocales no vacíos
@@ -97,7 +121,7 @@ def recibirAnuncios(scktEscucha):
             scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             time.sleep(random.uniform(0,5))
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
-    """
+    
         if(lineas[0]=="DOWNLOAD"): 
             sktDescarga = socket.socket()
             sktDescarga.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
@@ -105,7 +129,7 @@ def recibirAnuncios(scktEscucha):
                 _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],sktDescarga) 
             except:
                 print ("Error: unable to start thread")
-         """  
+           
 
 
 def verCompartidos():
@@ -134,11 +158,23 @@ def verCompartidos():
         if int(nroArchivo) in seleccion:
             selectedFileMd5=seleccion[int(nroArchivo)]
             print("---Enviando Anuncio de descarga----")
+            #se tendría que iterar entre seeders
+            anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+            #while not finished, keep looping
+            for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key
+                scktAnuncio.sendto((anuncio).encode(),( archivosDeRed[selectedFileMd5][Seeders][IP],2020))
+                sktSeeder = socket.socket()
+                sktSeeder.connect((IP,"")) #que conecte en el puerto que pueda (en manos del SO)
+                archivoEnBytes+=recibirDescarga(sktSeeder,tamDeBloque)
+
             mutexRed.acquire()
-            anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n0" #start=0 size=0 etapa de testing
-            mutexRed.release()
-            scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
-            
+            nombreDelArchivoNuevo=archivosDeRed[selectedFileMd5][fileName]
+            #tam=archivosDeRed[selectedFileMd5][fileSize]
+            mutexRed.acquire()
+            out_file = open(nombreDelArchivoNuevo, "wb") # open for [w]riting as [b]inary
+            out_file.write(archivoEnBytes)
+            out_file.close()
+            #falta agregar el archivo nuevo a archivos locales automaticamente(por letra)
            
 
 
@@ -148,10 +184,8 @@ def ofrecer(nombreA):
 
 
 
-def aceptarDescarga(md5,start,size,sktDescarga):
-     while True:
-        mensaje,addr = sktDescarga.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
-        print("\""+mensaje.decode()+"\" desde la IP: "+addr[0]+" y puerto: "+addr[1])
+
+  
 
 
 
