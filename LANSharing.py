@@ -15,28 +15,29 @@ fileSize=1
 fileMd5=2
 
 #tamaño de bloquen de distribución 256kb
-tamDeBloque=10
+tamDeBloque=500
 #Posiciones en los diccionarios
 Seeders=1
 
-myIP="25.91.200.244"
+dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
 dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
 
-def aceptarDescarga(md5,start,size,sktDescarga):
+def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudesDeDescarga, acepta solicitud de descarga y la envia
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
     filePath ='Archivos/'+archivosLocales[md5][0]
     mutexLocales.release() #liberamos archivosLocales
-
+    print("entro a aceptar")
     with open(filePath, "rb") as f:
         f.seek(start, 0)    
-        piece =f.read(size)    
-        #  if piece == "":
-        #      break # end of file
-        sktDescarga.sendall(piece.encode())   
+        piece =f.read(size)
+        print("hizo la pieza y la va a mandar")
+        sktDescarga.sendall(piece.encode())  
+        print("la mando") 
 
-def recibirDescarga(sock,count): #se espera un DOWNLOAD OK\n, seguido de el bloque
+def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
+    #se espera un DOWNLOAD OK\n, seguido de el bloque
     buf = b''
     while count:
         newbuf = sock.recv(count)
@@ -46,14 +47,14 @@ def recibirDescarga(sock,count): #se espera un DOWNLOAD OK\n, seguido de el bloq
     buf = buf.split("\n")[1:]
     return buf
 
-def md5(fname):
+def md5(fname): #crea el id para el file
     hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
 
-def generarAnuncio():
+def generarAnuncio(): #genera a un anuncio, lo llama enviarAnuncios
     anuncio = "ANNOUNCE\n"
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
     for key in archivosLocales:
@@ -62,7 +63,7 @@ def generarAnuncio():
     return anuncio
 
 
-def enviarAnuncios(scktAnuncio):
+def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos locales
     while True:
         time.sleep(10)#30 seg
         print("---------------anunciandooooo----------------")
@@ -97,20 +98,18 @@ def enviarAnuncios(scktAnuncio):
 
         mutexRed.release()
 
-def recibirSolicitudesDeDescargas(scktEscucha):
+def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe solicitudes de descarga
     scktEscucha.listen()
     while True:
         cliente,addr =scktEscucha.accept()
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
+        if(addr[0]!=socket.gethostbyname(dirStefa)): #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
-            print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1]) 
-            cliente = socket.socket()
-            cliente.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
+            print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1])
             try:
                 _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],cliente) 
             except:
@@ -118,11 +117,11 @@ def recibirSolicitudesDeDescargas(scktEscucha):
             cliente.close()
            
 
-def recibirAnuncios(scktEscucha):
+def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archivos
     while True:
         mensaje,addr = scktEscucha.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        #if(addr[0]!=socket.gethostbyname(myIP)): #no queremos escuchar nuestros propios mensajes en hamachi
+        #if(addr[0]!=socket.gethostbyname(dirStefa)): #no queremos escuchar nuestros propios mensajes en hamachi
         lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="ANNOUNCE"):
@@ -149,7 +148,7 @@ def recibirAnuncios(scktEscucha):
       
 
 
-def verCompartidos():
+def verCompartidos(): #invocado por el usuario con el comando 1, para ver los archivos disponibles a descarga y descargarlos
     print("Disponibles en la red para descargar:")
     print("fileID - fielSize fileName1 fileName2 fileName3 ....")
     seleccion={}
@@ -176,7 +175,7 @@ def verCompartidos():
             selectedFileMd5=seleccion[int(nroArchivo)]
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
-            anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+            anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
             archivoEnBytes=""
             mutexRed.acquire()
             #while not finished, keep looping1
@@ -184,7 +183,7 @@ def verCompartidos():
                 sktSeeder = socket.socket()
                 print("Intentando conectar con: "+str(IP) )
                 sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
-                sktSeeder.send(anuncio.encode())
+                sktSeeder.send(anuncioDescarga.encode())
                 archivoEnBytes+=recibirDescarga(sktSeeder,tamDeBloque)
                 sktSeeder.close()
             mutexRed.release()
@@ -200,7 +199,7 @@ def verCompartidos():
            
 
 
-def ofrecer(nombreA):
+def ofrecer(nombreA): #añade un archivo local a los announce
     if(os.path.isfile('./Archivos/'+nombreA)):
         archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
 
