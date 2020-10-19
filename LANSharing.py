@@ -108,7 +108,7 @@ def recibirSolicitudesDeDescargas(scktEscucha):
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
-             print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1]) 
+            print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1]) 
             cliente = socket.socket()
             cliente.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
             try:
