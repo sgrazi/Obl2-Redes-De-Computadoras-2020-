@@ -39,8 +39,11 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
 def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
     #se espera un DOWNLOAD OK\n, seguido de el bloque
     buf = b''
+    print("iniciando descarga")
     while count:
+        print("recibiendo pedazo")
         newbuf = sock.recv(count)
+        print("recibido")
         if not newbuf: return None
         buf += newbuf
         count -= len(newbuf)
@@ -110,6 +113,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
 
         if(lineas[0]=="DOWNLOAD"):
             print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1])
+
             try:
                 _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],cliente) 
             except:
@@ -184,7 +188,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
                 print("Intentando conectar con: "+str(IP) )
                 sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
                 sktSeeder.send(anuncioDescarga.encode())
-                archivoEnBytes+=recibirDescarga(sktSeeder,tamDeBloque)
+                archivoEnBytes+=str(recibirDescarga(sktSeeder,tamDeBloque))
                 sktSeeder.close()
             mutexRed.release()
 
