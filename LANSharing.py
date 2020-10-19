@@ -15,7 +15,7 @@ fileSize=1
 fileMd5=2
 
 #tamaño de bloquen de distribución 256kb
-tamDeBloque=10
+tamDeBloque=500
 #Posiciones en los diccionarios
 Seeders=1
 
@@ -38,8 +38,11 @@ def aceptarDescarga(md5,start,size,sktDescarga):
 
 def recibirDescarga(sock,count): #se espera un DOWNLOAD OK\n, seguido de el bloque
     buf = b''
+    print("iniciando descarga")
     while count:
+        print("recibiendo pedazo")
         newbuf = sock.recv(count)
+        print("recibido")
         if not newbuf: return None
         buf += newbuf
         count -= len(newbuf)
@@ -109,8 +112,6 @@ def recibirSolicitudesDeDescargas(scktEscucha):
 
         if(lineas[0]=="DOWNLOAD"):
             print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1]) 
-            cliente = socket.socket()
-            cliente.connect((addr[0],"")) #que conecte en el puerto que pueda (en manos del SO)
             try:
                 _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],cliente) 
             except:
@@ -176,7 +177,7 @@ def verCompartidos():
             selectedFileMd5=seleccion[int(nroArchivo)]
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
-            anuncio = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+            anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
             archivoEnBytes=""
             mutexRed.acquire()
             #while not finished, keep looping1
@@ -184,8 +185,8 @@ def verCompartidos():
                 sktSeeder = socket.socket()
                 print("Intentando conectar con: "+str(IP) )
                 sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
-                sktSeeder.send(anuncio.encode())
-                archivoEnBytes+=recibirDescarga(sktSeeder,tamDeBloque)
+                sktSeeder.send(anuncioDescarga.encode())
+                archivoEnBytes+=str(recibirDescarga(sktSeeder,tamDeBloque))
                 sktSeeder.close()
             mutexRed.release()
 
