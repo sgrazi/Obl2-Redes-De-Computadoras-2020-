@@ -108,7 +108,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if(addr[0]!=socket.gethostbyname(dirMartin)): #no queremos escuchar nuestros propios mensajes en hamachi
+        if(addr[0]!=socket.gethostbyname(dirStefa)): #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -211,7 +211,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 
 def ofrecer(nombreA): #añade un archivo local a los announce
     if(os.path.isfile('./Archivos/'+nombreA)):
-        archivosLocales[md5(nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
+        archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
 
 
 
