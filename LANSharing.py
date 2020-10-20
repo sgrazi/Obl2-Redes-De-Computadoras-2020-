@@ -191,11 +191,6 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
                     sktSeeder.send(anuncioDescarga.encode())
                     recibido = str(recibirDescarga(sktSeeder,tamDeBloque))#llega decodificado
                     sktSeeder.close()
-                    #print(recibido[0:13])
-                    #print(f'------------{recibido[0:12]}----------')
-                    #print(f'--------{str(recibido[0:13]) == "DOWNLOAD OK\n"}----------')
-                    #booleano = recibido[0:11] == 'DOWNLOAD OK'
-                    #print(booleano)
                     if recibido[0:12] == 'DOWNLOAD OK\n':
                         archivoData+=recibido[12:]
                         offset = len(archivoData)
@@ -206,8 +201,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 
 
             print("Msg recibido: "+archivoData)
-            archivoString = str(archivoData)[ 15 :-1:]#ELIMINAMOS LA PRIMERA LINEA (DOWNLOAD OK\n) y no tomamos la última '
-            print("Data del archivo: "+archivoString+"   ")
+            print("Data del archivo: "+archivoData+"   ")
             mutexRed.acquire()
             print("Nombre para el archivo descargado junto a su extensión:")
             nombreDelArchivoNuevo=input()
@@ -215,7 +209,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             mutexRed.release()
             pathfile = os.getcwd()+'\\Archivos\\'+nombreDelArchivoNuevo
             with open(pathfile,"wb+") as file: # open for [w]riting as [b]inary
-                file.write(archivoString.encode()) #encode lo pasa a bytes
+                file.write(archivoData.encode()) #encode lo pasa a bytes
                 file.close()
             #falta agregar el archivo nuevo a archivos locales automaticamente(por letra)
            
