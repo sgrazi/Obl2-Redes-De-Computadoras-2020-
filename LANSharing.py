@@ -28,13 +28,13 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
     filePath ='Archivos/'+archivosLocales[md5][0]
     mutexLocales.release() #liberamos archivosLocales
-    print("entro a aceptar")
     with open(filePath, "rb") as f:
-        f.seek(start, 0)    
-        piece =f.read(size)
-        print("hizo la pieza y la va a mandar")
-        sktDescarga.sendall(piece.encode())  
-        print("la mando") 
+        f.seek(start, 0)
+        piece = f.read(size)
+        piece = "DOWNLOAD OK\n".encode() + piece
+        sktDescarga.sendall(piece)  
+        print("la mando")
+        sktDescarga.close()
 
 def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
     #se espera un DOWNLOAD OK\n, seguido de el bloque
@@ -115,10 +115,9 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
             print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1])
 
             try:
-                _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2]),lineas[3],cliente) 
+                _thread.start_new_thread(aceptarDescarga,(lineas[1],int(lineas[2]),int(lineas[3]),cliente))
             except:
                 print ("Error: unable to start thread")
-            cliente.close()
            
 
 def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archivos
