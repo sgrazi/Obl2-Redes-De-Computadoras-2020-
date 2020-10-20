@@ -15,7 +15,7 @@ fileSize=1
 fileMd5=2
 
 #tamaño de bloquen de distribución 256kb
-tamDeBloque=15
+tamDeBloque=256*1000
 #Posiciones en los diccionarios
 Seeders=1
 
@@ -48,7 +48,7 @@ def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
             break
         buf += newbuf
         count -= len(newbuf)
-    return buf.decode()
+    return buf
 
 def md5(fPath): #crea el id para el file
     hash_md5 = hashlib.md5()
@@ -179,7 +179,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
             offset = 0
-            archivoData=""
+            archivoData=b''
             mutexRed.acquire()
             while len(archivoData) != int(archivosDeRed[selectedFileMd5][0]): #0 es tamaño
                 #print(f'{len(archivoData)}--{archivosDeRed[selectedFileMd5][0]}')
@@ -189,19 +189,21 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
                     print("Intentando conectar con: "+str(IP) )
                     sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
                     sktSeeder.send(anuncioDescarga.encode())
-                    recibido = str(recibirDescarga(sktSeeder,tamDeBloque))#llega decodificado
+                    recibido = recibirDescarga(sktSeeder,tamDeBloque)#llega decodificado
                     sktSeeder.close()
-                    if recibido[0:12] == 'DOWNLOAD OK\n':
-                        archivoData+=recibido[12:]
+                    if recibido[0:12].decode() == 'DOWNLOAD OK\n':
+                        archivoData=archivoData+recibido[12:]
                         offset = len(archivoData)
-                        print(f'{archivoData}')
+                        #print(f'{archivoData}')
+                    if len(archivoData) != int(archivosDeRed[selectedFileMd5][0]):
+                        break #se obtuvo el archivo completo, no es necesario seguir iterando
 
 
             mutexRed.release()
 
 
-            print("Msg recibido: "+archivoData)
-            print("Data del archivo: "+archivoData+"   ")
+            #print("Msg recibido: "+archivoData)
+            #print("Data del archivo: "+archivoData+"   ")
             mutexRed.acquire()
             print("Nombre para el archivo descargado junto a su extensión:")
             nombreDelArchivoNuevo=input()
@@ -209,7 +211,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             mutexRed.release()
             pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo[:-1]
             with open(pathfile,"wb+") as file: # open for [w]riting as [b]inary
-                file.write(archivoData.encode()) #encode lo pasa a bytes
+                file.write(archivoData) #encode lo pasa a bytes
                 file.close()
             #falta agregar el archivo nuevo a archivos locales automaticamente(por letra)
            
