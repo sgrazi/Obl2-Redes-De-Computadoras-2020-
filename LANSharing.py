@@ -15,7 +15,7 @@ fileSize=1
 fileMd5=2
 
 #tamaño de bloquen de distribución 256kb
-tamDeBloque=500
+tamDeBloque=15
 #Posiciones en los diccionarios
 Seeders=1
 
@@ -48,7 +48,7 @@ def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
             break
         buf += newbuf
         count -= len(newbuf)
-    return buf
+    return buf.decode()
 
 def md5(fPath): #crea el id para el file
     hash_md5 = hashlib.md5()
@@ -178,17 +178,30 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             selectedFileMd5=seleccion[int(nroArchivo)]
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
-            anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+            offset = 0
             archivoData=""
             mutexRed.acquire()
-            #while not finished, keep looping1
-            for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key     
-                sktSeeder = socket.socket()
-                print("Intentando conectar con: "+str(IP) )
-                sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
-                sktSeeder.send(anuncioDescarga.encode())
-                archivoData+=str(recibirDescarga(sktSeeder,tamDeBloque))
-                sktSeeder.close()
+            while len(archivoData) != int(archivosDeRed[selectedFileMd5][0]): #0 es tamaño
+                #print(f'{len(archivoData)}--{archivosDeRed[selectedFileMd5][0]}')
+                for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key     
+                    anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
+                    sktSeeder = socket.socket()
+                    print("Intentando conectar con: "+str(IP) )
+                    sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
+                    sktSeeder.send(anuncioDescarga.encode())
+                    recibido = str(recibirDescarga(sktSeeder,tamDeBloque))#llega decodificado
+                    sktSeeder.close()
+                    #print(recibido[0:13])
+                    #print(f'------------{recibido[0:12]}----------')
+                    #print(f'--------{str(recibido[0:13]) == "DOWNLOAD OK\n"}----------')
+                    #booleano = recibido[0:11] == 'DOWNLOAD OK'
+                    #print(booleano)
+                    if recibido[0:12] == 'DOWNLOAD OK\n':
+                        archivoData+=recibido[12:]
+                        offset = len(archivoData)
+                        print(f'{archivoData}')
+
+
             mutexRed.release()
 
 
