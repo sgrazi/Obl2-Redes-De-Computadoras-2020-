@@ -26,7 +26,7 @@ dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
 
 def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudesDeDescarga, acepta solicitud de descarga y la envia
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
-    filePath ='Archivos/'+archivosLocales[md5][0]
+    filePath =os.getcwd()+os.sep+'Archivos'+os.sep+archivosLocales[md5][0]
     mutexLocales.release() #liberamos archivosLocales
     with open(filePath, "rb") as f:
         f.seek(start, 0)
@@ -207,7 +207,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             nombreDelArchivoNuevo=input()
             #tam=archivosDeRed[selectedFileMd5][fileSize]
             mutexRed.release()
-            pathfile = os.getcwd()+'\\Archivos\\'+nombreDelArchivoNuevo
+            pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo[:-1]
             with open(pathfile,"wb+") as file: # open for [w]riting as [b]inary
                 file.write(archivoData.encode()) #encode lo pasa a bytes
                 file.close()
@@ -216,8 +216,9 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 
 
 def ofrecer(nombreA): #añade un archivo local a los announce
-    if(os.path.isfile('./Archivos/'+nombreA)):
-        archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
+    pathToFile=os.getcwd()+os.sep+'Archivos'+os.sep+nombreA
+    if(os.path.isfile(pathToFile)):
+        archivosLocales[md5(pathToFile)] = [nombreA,os.path.getsize(pathToFile)]
 
 
 
