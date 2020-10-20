@@ -108,7 +108,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if(addr[0]!=socket.gethostbyname(dirStefa)): #no queremos escuchar nuestros propios mensajes en hamachi
+        if(addr[0]!=socket.gethostbyname(dirMartin)): #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -193,8 +193,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 
 
             print("Msg recibido: "+archivoData)
-                            #preservar (b')                   (desde DOWNLOAD OK\n en adelante)
-            archivoString = str(archivoData)[0 : 2 : ] + str(archivoData)[ 15 : :]#ELIMINAMOS LA PRIMERA LINEA (DOWNLOAD OK\n)
+            archivoString = str(archivoData)[ 15 :-1:]#ELIMINAMOS LA PRIMERA LINEA (DOWNLOAD OK\n) y no tomamos la última '
             print("Data del archivo: "+archivoString+"   ")
             mutexRed.acquire()
             print("Nombre para el archivo descargado junto a su extensión:")
