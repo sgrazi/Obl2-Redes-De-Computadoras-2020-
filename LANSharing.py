@@ -4,7 +4,7 @@ import struct
 import _thread 
 import hashlib  #md5
 import random   #espera aleatorea de tiempos
-import os.path  #chequear que existe un archivo
+import os  #chequear que existe un archivo
 import re #splitear los mensajes del protocolo separados por tabs y enters
 from threading import Lock  #mutuoexcluir el acceso a estructuras de datos
 
@@ -37,22 +37,22 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
         sktDescarga.close()
 
 def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
-    #se espera un DOWNLOAD OK\n, seguido de el bloque
+    #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
     buf = b''
     print("iniciando descarga")
     while count:
         print("recibiendo pedazo")
         newbuf = sock.recv(count)
-        print("recibido")
-        if not newbuf: return None
+        print("recibido:"+str(len(newbuf))+"bytes")
+        if not newbuf: #si no recibo más nada me voy (count>fileSize)
+            break
         buf += newbuf
         count -= len(newbuf)
-    buf = buf.split("\n")[1:]
     return buf
 
-def md5(fname): #crea el id para el file
+def md5(fPath): #crea el id para el file
     hash_md5 = hashlib.md5()
-    with open(fname, "rb") as f:
+    with open(fPath, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
             hash_md5.update(chunk)
     return hash_md5.hexdigest()
@@ -108,7 +108,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if(addr[0]!=socket.gethostbyname(dirStefa)): #no queremos escuchar nuestros propios mensajes en hamachi
+        if(addr[0]!=socket.gethostbyname(dirMartin)): #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -179,7 +179,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
             anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n0\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
-            archivoEnBytes=""
+            archivoData=""
             mutexRed.acquire()
             #while not finished, keep looping1
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key     
@@ -187,24 +187,31 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
                 print("Intentando conectar con: "+str(IP) )
                 sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
                 sktSeeder.send(anuncioDescarga.encode())
-                archivoEnBytes+=str(recibirDescarga(sktSeeder,tamDeBloque))
+                archivoData+=str(recibirDescarga(sktSeeder,tamDeBloque))
                 sktSeeder.close()
             mutexRed.release()
 
+
+            print("Msg recibido: "+archivoData)
+                            #preservar (b')                   (desde DOWNLOAD OK\n en adelante)
+            archivoString = str(archivoData)[0 : 2 : ] + str(archivoData)[ 15 : :]#ELIMINAMOS LA PRIMERA LINEA (DOWNLOAD OK\n)
+            print("Data del archivo: "+archivoString+"   ")
             mutexRed.acquire()
-            nombreDelArchivoNuevo=archivosDeRed[selectedFileMd5][fileName]
+            print("Nombre para el archivo descargado junto a su extensión:")
+            nombreDelArchivoNuevo=input()
             #tam=archivosDeRed[selectedFileMd5][fileSize]
-            mutexRed.acquire()
-            out_file = open(nombreDelArchivoNuevo, "wb") # open for [w]riting as [b]inary
-            out_file.write(archivoEnBytes)
-            out_file.close()
+            mutexRed.release()
+            pathfile = os.getcwd()+'\\Archivos\\'+nombreDelArchivoNuevo
+            with open(pathfile,"wb+") as file: # open for [w]riting as [b]inary
+                file.write(archivoString.encode()) #encode lo pasa a bytes
+                file.close()
             #falta agregar el archivo nuevo a archivos locales automaticamente(por letra)
            
 
 
 def ofrecer(nombreA): #añade un archivo local a los announce
     if(os.path.isfile('./Archivos/'+nombreA)):
-        archivosLocales[md5('Archivos/'+nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
+        archivosLocales[md5(nombreA)] = [nombreA,os.path.getsize('./Archivos/'+nombreA)]
 
 
 
