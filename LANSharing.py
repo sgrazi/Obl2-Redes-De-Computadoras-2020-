@@ -199,7 +199,6 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
            
-            archivoData=b''
             mutexRed.acquire()
             tamArchivo=archivosDeRed[selectedFileMd5][0] #0=fileSize
             #creamos el archivo vacío
@@ -216,7 +215,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             tamPieces=math.floor(tamArchivo/cantPieces)
             print("tamaño de pieza : "+str(tamPieces))
             offset = 0
-            acceptedPieces=0
+            global acceptedPieces
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key   
                 if(IP==len(archivosDeRed[selectedFileMd5][Seeders])-1): #es el último seeder, le corresponde una pieza más grande generalmente
                     tamPieces=tamPieces+ (tamPieces % cantPieces )
@@ -240,14 +239,9 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
                     #print("Piezas aceptadas:"+str(acceptedPieces)) 
 
             print(" --- Fin de descarga --- ") 
+            ofrecer(nombreDelArchivoNuevo)
+
             acceptedPieces=0
-           
-
-
-            #print("Msg recibido: "+archivoData)
-            #print("Data del archivo: "+archivoData+"   ")
-          
-            #falta agregar el archivo nuevo a archivos locales automaticamente(por letra)
            
 
 
