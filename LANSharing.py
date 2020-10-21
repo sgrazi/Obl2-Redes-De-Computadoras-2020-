@@ -1,6 +1,7 @@
 import socket
 import time
 import struct
+import math
 import _thread 
 import hashlib  #md5
 import random   #espera aleatorea de tiempos
@@ -18,7 +19,8 @@ fileMd5=2
 tamDeBloque=256*1000
 #Posiciones en los diccionarios
 Seeders=1
-
+ 
+acceptedPieces=0 #variable paraz coordinar entre hilos las piezas aceptadas
 dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
@@ -36,19 +38,37 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
         print("la mando")
         sktDescarga.close()
 
-def recibirDescarga(sock,count): #llamado por verCompartidos para descargar
+def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompartidos para descargar
     #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
     buf = b''
+    global acceptedPieces
     print("iniciando descarga")
-    while count:
+    while totalSize:
         print("recibiendo pedazo")
-        newbuf = sock.recv(count)
+        newbuf = sktSeeder.recv(totalSize)
         print("recibido:"+str(len(newbuf))+"bytes")
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
             break
         buf += newbuf
-        count -= len(newbuf)
-    return buf
+        totalSize -= len(newbuf)
+
+    sktSeeder.close()
+    if buf[0:12].decode() == 'DOWNLOAD OK\n' and acceptedPieces>=0: #nos llegó bien y por ahora no hay errores
+        buf=buf[12:] #stripeamos download ok
+        acceptedPieces+=1
+        mutexArchivo.acquire()
+        with open(pathfile, "wb") as f:
+            f.seek(offset, 0)
+            f.write(buf)
+            f.close()
+        mutexArchivo.release()
+        
+
+    if buf[0:12].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
+        acceptedPieces=-1
+        print("error en descarga")
+    
+   
 
 def md5(fPath): #crea el id para el file
     hash_md5 = hashlib.md5()
@@ -138,7 +158,7 @@ def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archiv
                     if( datos[fileMd5] in archivosDeRed): #sólo debemos agregar/actualizar el nuevo/existente seeder (indiferente para el diccionario de seeders)
                         archivosDeRed[datos[fileMd5]][Seeders][addr[0]]=[datos[fileName],3] #addr[0]=dirIP y ttl=3   
                     else:#agregar nuevo archivo
-                        archivosDeRed[datos[fileMd5]]=[datos[fileSize],{addr[0]:[datos[fileName],3]}]
+                        archivosDeRed[datos[fileMd5]]=[int(datos[fileSize]),{addr[0]:[datos[fileName],3]}]
                     mutexRed.release()
 
         if(lineas[0]=="REQUEST"):
@@ -178,41 +198,55 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
             selectedFileMd5=seleccion[int(nroArchivo)]
             print("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
-            offset = 0
+           
             archivoData=b''
             mutexRed.acquire()
-            while len(archivoData) != int(archivosDeRed[selectedFileMd5][0]): #0 es tamaño
-                #print(f'{len(archivoData)}--{archivosDeRed[selectedFileMd5][0]}')
-                for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key     
-                    anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamDeBloque)+"\n" #start=0 size=0 etapa de testing
-                    sktSeeder = socket.socket()
-                    print("Intentando conectar con: "+str(IP) )
-                    sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
-                    sktSeeder.send(anuncioDescarga.encode())
-                    recibido = recibirDescarga(sktSeeder,tamDeBloque)#llega decodificado
-                    sktSeeder.close()
-                    if recibido[0:12].decode() == 'DOWNLOAD OK\n':
-                        archivoData=archivoData+recibido[12:]
-                        offset = len(archivoData)
-                        #print(f'{archivoData}')
-                    if len(archivoData) != int(archivosDeRed[selectedFileMd5][0]):
-                        break #se obtuvo el archivo completo, no es necesario seguir iterando
+            tamArchivo=archivosDeRed[selectedFileMd5][0] #0=fileSize
+            #creamos el archivo vacío
 
+            print("Nombre para el archivo descargado junto a su extensión:")
+            nombreDelArchivoNuevo=input()
+            pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo
+            with open(pathfile,"wb+") as f: # open for [w]riting as [b]inary
+                f.seek(tamArchivo-1)
+                f.write(b"\0")#encode lo pasa a bytes
+                f.close()
 
-            mutexRed.release()
+            cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
+            tamPieces=math.floor(tamArchivo/cantPieces)
+            print("tamaño de pieza : "+str(tamPieces))
+            offset = 0
+            acceptedPieces=0
+            for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key   
+                if(IP==len(archivosDeRed[selectedFileMd5][Seeders])-1): #es el último seeder, le corresponde una pieza más grande generalmente
+                    tamPieces=tamPieces+ (tamPieces % cantPieces )
+                    print("tamaño de pieza final : "+str(tamPieces))
+                anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamPieces)+"\n" #start=0 size=0 etapa de testing
+                sktSeeder = socket.socket()
+                print("Intentando conectar con: "+str(IP) )
+                sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
+                sktSeeder.send(anuncioDescarga.encode())
+                try:
+                    _thread.start_new_thread(recibirDescarga,(sktSeeder,offset,tamPieces+len("DOWNLOAD OK\n"),pathfile))#recibirDescarga guarda en el archivo  previamente creado
+                except:
+                    print ("Error: unable to start thread")
+                offset +=tamPieces
+
+            mutexRed.release()   
+            while(acceptedPieces!=cantPieces):
+                if(acceptedPieces==-1):
+                    print(" --- Ocurrió un error en alguna descarga --- ") 
+                #else:
+                    #print("Piezas aceptadas:"+str(acceptedPieces)) 
+
+            print(" --- Fin de descarga --- ") 
+            acceptedPieces=0
+           
 
 
             #print("Msg recibido: "+archivoData)
             #print("Data del archivo: "+archivoData+"   ")
-            mutexRed.acquire()
-            print("Nombre para el archivo descargado junto a su extensión:")
-            nombreDelArchivoNuevo=input()
-            #tam=archivosDeRed[selectedFileMd5][fileSize]
-            mutexRed.release()
-            pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo[:-1]
-            with open(pathfile,"wb+") as file: # open for [w]riting as [b]inary
-                file.write(archivoData) #encode lo pasa a bytes
-                file.close()
+          
             #falta agregar el archivo nuevo a archivos locales automaticamente(por letra)
            
 
@@ -245,6 +279,7 @@ if __name__ == '__main__':
     #archivos de Red
     archivosDeRed = {}  #md5 : tamaño, {Seeders: FileName,ttl}
     mutexRed = Lock()
+    mutexArchivo = Lock()
     #archivos locales
     archivosLocales = {} #md5 : FileName , tamaño 
     mutexLocales = Lock()

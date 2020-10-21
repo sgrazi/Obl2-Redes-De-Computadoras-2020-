@@ -1,5 +1,4 @@
-import os
+import socket
 
-outFile = open('./Archivos/P4Output.txt', 'wb+')
-outFile.write("exito".encode())
-outFile.close
+open(pathfile, "rb")
+open(pathfile, "rb") as f:
