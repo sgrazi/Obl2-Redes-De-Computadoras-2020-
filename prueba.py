@@ -4,9 +4,12 @@ from threading import Lock
 mutexTelnet=Lock()
 
 
+
+
 masterTelnet = socket.socket()
 masterTelnet.bind(("", 2025))
 masterTelnet.listen()
+#print(socket.gethostbyname(socket.gethostname()))
 sktTelnet,addr =masterTelnet.accept()
 comando=b''
 char=b''

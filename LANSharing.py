@@ -136,7 +136,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if(addr[0]!=socket.gethostbyname(dirMartin)): #no queremos escuchar nuestros propios mensajes en hamachi
+        if addr[0]!=socket.gethostbyname(socket.gethostname()) or addr[0]!=get_ip_address("Hamachi"): #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -272,6 +272,13 @@ def sendTelnetResponse(msg): #msg es un String
         retorno=msg.encode("unicode_escape")+"\r\n".encode("unicode_escape")
         sktTelnet.sendall(retorno) 
 
+def get_ip_address(ifname): #nombre de la interfaz
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
 
 
 if __name__ == '__main__':
