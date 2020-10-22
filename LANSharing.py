@@ -34,7 +34,7 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     mutexLocales.release() #liberamos archivosLocales
     fileSize = os.path.getsize(filePath)
     if os.path.isfile(filePath): #Si existe el archivo
-        if start.isDigit() and size.isDigit() and start>=0 and size>0 and start+size<=fileSize :
+        if start.isdigit() and size.isdigit() and int(start)>=0 and int(size)>0 and int(start)+int(size)<=fileSize :
             with open(filePath, "rb") as f:
                 f.seek(int(start), 0)
                 piece = f.read(int(size))
