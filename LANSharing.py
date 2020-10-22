@@ -138,7 +138,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if addr[0]!=socket.gethostbyname(dirMartin) : #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
+        if addr[0]!=socket.gethostbyname(dirMartin) or addr[0]!=socket.gethostbyname(socket.gethostname()): #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -336,6 +336,8 @@ if __name__ == '__main__':
         sendTelnetResponse("   /_/  \____/_/  /_/   \___/_/ /_/\__/  /_/   /_/_/ /_/\__, / " )
         sendTelnetResponse("                                                      /____/   ®")
         sendTelnetResponse("Bienvenido a TorrentFing ingrese alguno de los siguientes comandos :\n")
+        #Request inicial de conexión
+        scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
         while (not salir):
             sendTelnetResponse("---- Comandos ----")
             sendTelnetResponse("- offer <filename>")
