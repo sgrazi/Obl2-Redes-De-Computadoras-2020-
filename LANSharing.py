@@ -20,7 +20,8 @@ fileMd5=2
 tamDeBloque=256*1000
 #Posiciones en los diccionarios
 Seeders=1
- 
+seleccion = {} #lista para descargar disponibles
+
 acceptedPieces=0 #variable paraz coordinar entre hilos las piezas aceptadas
 dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
@@ -33,7 +34,7 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     mutexLocales.release() #liberamos archivosLocales
     fileSize = os.path.getsize(filePath)
     if os.path.isfile(filePath): #Si existe el archivo
-        if start.isDigit() and size.isDigit() and start>=0 and size>0 and start+fileSize<fileSize and size<fileSize :
+        if start>=0 and size>0 and start+size<fileSize and size<fileSize :
             with open(filePath, "rb") as f:
                 f.seek(start, 0)
                 piece = f.read(size)
@@ -97,6 +98,7 @@ def generarAnuncio(): #genera a un anuncio, lo llama enviarAnuncios
 
 
 def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos locales
+    global seleccion
     while True:
         time.sleep(10)#30 seg
         print("---------------anunciandooooo----------------")
@@ -110,6 +112,7 @@ def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos
         
         mutexRed.acquire() 
         print(archivosDeRed)
+        print(seleccion)
         seedersABorrar=[]
         archivosABorrar=[]
         for archivo in archivosDeRed: #archivo=MD5=key
@@ -184,6 +187,7 @@ def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archiv
 def verCompartidos(): #invocado por el usuario con el comando 1, para ver los archivos disponibles a descarga y descargarlos
     sendTelnetResponse("Disponibles en la red para descargar:")
     sendTelnetResponse("fileID - fielSize fileName1 fileName2 fileName3 ....")
+    global seleccion
     seleccion={}
     i=0
     nombresExistentes=[] #para no repetir los nombres de archivo con distintos seeders
@@ -191,7 +195,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
     nombres=""
     for archivo in archivosDeRed: #archivo=MD5=key
         seleccion[i]=archivo
-        
+        nombres=""
         for IP in archivosDeRed[archivo][Seeders]: #listamos todos los nombres DISTINTOS del archivo
             nombre=archivosDeRed[archivo][Seeders][IP][fileName]
             if(nombre not in nombresExistentes): #Verificamos que sean distintos
@@ -204,6 +208,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 
 def getFile(nroArchivo):
     if nroArchivo.isdigit():
+        global seleccion
         if int(nroArchivo) in seleccion:
             selectedFileMd5=seleccion[int(nroArchivo)]
             sendTelnetResponse("---Enviando Anuncio de descarga----")
@@ -267,7 +272,6 @@ def getTelnetCommand():
     comando=char.decode("unicode_escape")
     while 1:
         char =sktTelnet.recv(1)
-        print(char.decode("unicode_escape"))
         if char.decode("unicode_escape")=="\n":
             print ("comando:"+comando[:-1]+":")
             return comando[:-1] #sacamos el \r
@@ -295,7 +299,7 @@ if __name__ == '__main__':
 
     #archivos de Red
     archivosDeRed = {}  #md5 : tamaño, {Seeders: FileName,ttl}
-    seleccion={}
+    
     mutexRed = Lock()
     mutexArchivo = Lock()
     #archivos locales
