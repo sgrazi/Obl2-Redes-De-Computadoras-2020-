@@ -269,7 +269,7 @@ def getTelnetCommand():
         char =sktTelnet.recv(1)
         print(char.decode("unicode_escape"))
         if char.decode("unicode_escape")=="\n":
-            print ("comando:"+comando+":")
+            print ("comando:"+comando[:-1]+":")
             return comando[:-1] #sacamos el \r
         comando+=char.decode("unicode_escape")
             
@@ -277,7 +277,6 @@ def getTelnetCommand():
 def sendTelnetResponse(msg): #msg es un String
         retorno=msg.encode()+"\r\n".encode()
         sktTelnet.sendall(retorno) 
-        print ("enviado:"+retorno.decode())
 
 
 
@@ -334,7 +333,7 @@ if __name__ == '__main__':
         sendTelnetResponse("     / / / __ \/ ___/ ___/ _ \/ __ \/ __/  / /_  / / __ \/ __ `/")
         sendTelnetResponse("    / / / /_/ / /  / /  /  __/ / / / /_   / __/ / / / / / /_/ / ")
         sendTelnetResponse("   /_/  \____/_/  /_/   \___/_/ /_/\__/  /_/   /_/_/ /_/\__, / " )
-        sendTelnetResponse("                                                      /____/   ®")
+        sendTelnetResponse("                                                       /____/  ®")
         sendTelnetResponse("Bienvenido a TorrentFing ingrese alguno de los siguientes comandos :\n")
         #Request inicial de conexión
         scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
@@ -358,7 +357,7 @@ if __name__ == '__main__':
                         ofrecer(nombreA)
                     else:
                         if (comando == "exit"):
-                            sktTelnet.close
+                            sktTelnet.close()
                             salir =True
                         else:
                             sendTelnetResponse("el comando \'"+comando+"\' no existe" )
