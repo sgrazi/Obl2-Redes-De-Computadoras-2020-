@@ -34,10 +34,10 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     mutexLocales.release() #liberamos archivosLocales
     fileSize = os.path.getsize(filePath)
     if os.path.isfile(filePath): #Si existe el archivo
-        if start>=0 and size>0 and start+size<fileSize and size<fileSize :
+        if start.isDigit() and size.isDigit() and start>=0 and size>0 and start+size<=fileSize :
             with open(filePath, "rb") as f:
-                f.seek(start, 0)
-                piece = f.read(size)
+                f.seek(int(start), 0)
+                piece = f.read(int(size))
                 piece = "DOWNLOAD OK\n".encode() + piece
         else:
             piece = "DOWNLOAD FAILURE\nBAD REQUEST\n".encode()
@@ -148,7 +148,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
             print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1])
 
             try:
-                _thread.start_new_thread(aceptarDescarga,(lineas[1],int(lineas[2]),int(lineas[3]),cliente))
+                _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2],lineas[3],cliente))
             except:
                 print ("Error: unable to start thread")
            
@@ -250,7 +250,9 @@ def getFile(nroArchivo):
             while(acceptedPieces!=cantPieces):
                 if(acceptedPieces==-1):
                     sendTelnetResponse(" --- Ocurrió un error en alguna descarga --- ")
-                    os.remove(pathfile)
+                    if os.path.isfile(pathfile):
+                        os.remove(pathfile)
+                    break
 
             sendTelnetResponse(" --- Fin de descarga --- ") 
             ofrecer(nombreDelArchivoNuevo)
