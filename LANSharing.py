@@ -1,6 +1,7 @@
 import socket
 import time
-import struct
+import struct #para obtener la ip de Hamachi
+#import fcntl    #para obtener la ip de Hamachi
 import math
 import _thread 
 import hashlib  #md5
@@ -32,36 +33,36 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     mutexLocales.release() #liberamos archivosLocales
     fileSize = os.path.getsize(filePath)
     if os.path.isfile(filePath): #Si existe el archivo
-        if start.isDigit() and size.isDigit() and start>=0 and size>0 and start<fileSize and size<fileSize:
+        if start.isDigit() and size.isDigit() and start>=0 and size>0 and start+fileSize<fileSize and size<fileSize :
             with open(filePath, "rb") as f:
                 f.seek(start, 0)
                 piece = f.read(size)
                 piece = "DOWNLOAD OK\n".encode() + piece
         else:
-             piece = "DOWNLOAD FAILURE\BAD REQUEST\n".encode()
+            piece = "DOWNLOAD FAILURE\nBAD REQUEST\n".encode()
     else:
         piece = "DOWNLOAD FAILURE\nMISSING\n".encode()
 
     sktDescarga.sendall(piece)  
-    print("la mando")
+    #print("la mando")
     sktDescarga.close()
 
 def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompartidos para descargar
     #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
     buf = b''
     global acceptedPieces
-    print("iniciando descarga")
+    #print("iniciando descarga")
     while totalSize:
-        print("recibiendo pedazo")
+        #print("recibiendo pedazo")
         newbuf = sktSeeder.recv(totalSize)
-        print("recibido:"+str(len(newbuf))+"bytes")
+        #print("recibido:"+str(len(newbuf))+"bytes")
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
             break
         buf += newbuf
         totalSize -= len(newbuf)
 
     sktSeeder.close()
-    if buf[0:12].decode() == 'DOWNLOAD OK\n' and acceptedPieces>=0: #nos llegó bien y por ahora no hay errores
+    if buf[0:len("DOWNLOAD OK\n")].decode() == 'DOWNLOAD OK\n' and acceptedPieces>=0: #nos llegó bien y por ahora no hay errores
         buf=buf[12:] #stripeamos download ok
         acceptedPieces+=1
         mutexArchivo.acquire()
@@ -72,9 +73,10 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
         mutexArchivo.release()
         
 
-    if buf[0:12].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
+    if buf[0:len("DOWNLOAD FAILURE\n")].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
         acceptedPieces=-1
-        print("error en descarga")
+        sendTelnetResponse(buf[len("DOWNLOAD FAILURE\n"):].decode())
+        #print("error en descarga")
     
    
 
@@ -136,7 +138,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if addr[0]!=socket.gethostbyname(socket.gethostname()) or addr[0]!=get_ip_address("Hamachi"): #no queremos escuchar nuestros propios mensajes en hamachi
+        if addr[0]!=socket.gethostbyname(dirMartin) : #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -180,39 +182,38 @@ def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archiv
 
 
 def verCompartidos(): #invocado por el usuario con el comando 1, para ver los archivos disponibles a descarga y descargarlos
-    print("Disponibles en la red para descargar:")
-    print("fileID - fielSize fileName1 fileName2 fileName3 ....")
+    sendTelnetResponse("Disponibles en la red para descargar:")
+    sendTelnetResponse("fileID - fielSize fileName1 fileName2 fileName3 ....")
     seleccion={}
     i=0
     nombresExistentes=[] #para no repetir los nombres de archivo con distintos seeders
     mutexRed.acquire()
+    nombres=""
     for archivo in archivosDeRed: #archivo=MD5=key
         seleccion[i]=archivo
-        print(str(i)+" - "+str(archivosDeRed[archivo][0])+" ",end="") #0=fileSize
-        for IP in archivosDeRed[archivo][Seeders]:
+        
+        for IP in archivosDeRed[archivo][Seeders]: #listamos todos los nombres DISTINTOS del archivo
             nombre=archivosDeRed[archivo][Seeders][IP][fileName]
-            if(nombre not in nombresExistentes):
-                print(nombre,end=" ")
+            if(nombre not in nombresExistentes): #Verificamos que sean distintos
+                nombres=nombres+nombre+" "
                 nombresExistentes.append(nombre)
+        sendTelnetResponse(str(i)+" - "+str(archivosDeRed[archivo][0])+" "+nombres) #0=fileSize
         nombresExistentes.clear()    
-        print("")
         i+=1
-   # if seleccion.
     mutexRed.release()
-    print("Indique Nro del archivo que desea descargar.\nDe lo contrario ingrese cualuquier otra tecla para volver al menu")
-    nroArchivo =input()
+
+def getFile(nroArchivo):
     if nroArchivo.isdigit():
         if int(nroArchivo) in seleccion:
             selectedFileMd5=seleccion[int(nroArchivo)]
-            print("---Enviando Anuncio de descarga----")
+            sendTelnetResponse("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
            
             mutexRed.acquire()
             tamArchivo=archivosDeRed[selectedFileMd5][0] #0=fileSize
             #creamos el archivo vacío
-
-            print("Nombre para el archivo descargado junto a su extensión:")
-            nombreDelArchivoNuevo=input()
+            sendTelnetResponse("Ingrese nombre y extensión para el archivo a descargar:")
+            nombreDelArchivoNuevo=getTelnetCommand()
             pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo
             with open(pathfile,"wb+") as f: # open for [w]riting as [b]inary
                 f.seek(tamArchivo-1)
@@ -221,36 +222,39 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
             tamPieces=math.floor(tamArchivo/cantPieces)
-            print("tamaño de pieza : "+str(tamPieces))
+            #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
             offset = 0
             global acceptedPieces
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key   
                 if(IP==len(archivosDeRed[selectedFileMd5][Seeders])-1): #es el último seeder, le corresponde una pieza más grande generalmente
                     tamPieces=tamPieces+ (tamPieces % cantPieces )
-                    print("tamaño de pieza final : "+str(tamPieces))
+                    #sendTelnetResponse("tamaño de pieza final : "+str(tamPieces))
                 anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamPieces)+"\n" #start=0 size=0 etapa de testing
                 sktSeeder = socket.socket()
-                print("Intentando conectar con: "+str(IP) )
+                #sendTelnetResponse("Intentando conectar con: "+str(IP) )
                 sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
                 sktSeeder.send(anuncioDescarga.encode())
                 try:
                     _thread.start_new_thread(recibirDescarga,(sktSeeder,offset,tamPieces+len("DOWNLOAD OK\n"),pathfile))#recibirDescarga guarda en el archivo  previamente creado
                 except:
                     print ("Error: unable to start thread")
+                    acceptedPieces=-1
                 offset +=tamPieces
 
             mutexRed.release()   
             while(acceptedPieces!=cantPieces):
                 if(acceptedPieces==-1):
-                    print(" --- Ocurrió un error en alguna descarga --- ") 
-                #else:
-                    #print("Piezas aceptadas:"+str(acceptedPieces)) 
+                    sendTelnetResponse(" --- Ocurrió un error en alguna descarga --- ")
+                    os.remove(pathfile)
 
-            print(" --- Fin de descarga --- ") 
+            sendTelnetResponse(" --- Fin de descarga --- ") 
             ofrecer(nombreDelArchivoNuevo)
-
             acceptedPieces=0
-           
+        else:
+            sendTelnetResponse("No existe ese fileID, liste de nuevo")
+    else:
+        sendTelnetResponse("No se recibió un dígito como input, volviendo al menú")
+
 
 
 def ofrecer(nombreA): #añade un archivo local a los announce
@@ -262,23 +266,18 @@ def getTelnetCommand():
     comando=b''
     char=b''
     while 1:
-        char =sktTelnet.recv(10)
+        char =sktTelnet.recv(2)
         if char.decode("unicode_escape")=="\r\n":
+            print ("commando:"+comando.decode("unicode_escape")+"|")
             return (comando.decode("unicode_escape"))
         comando+=char
             
 
 def sendTelnetResponse(msg): #msg es un String
-        retorno=msg.encode("unicode_escape")+"\r\n".encode("unicode_escape")
+        retorno=msg.encode()+"\r\n".encode()
         sktTelnet.sendall(retorno) 
+        print ("enviado:"+retorno.decode())
 
-def get_ip_address(ifname): #nombre de la interfaz
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack('256s', ifname[:15])
-    )[20:24])
 
 
 if __name__ == '__main__':
@@ -296,6 +295,7 @@ if __name__ == '__main__':
 
     #archivos de Red
     archivosDeRed = {}  #md5 : tamaño, {Seeders: FileName,ttl}
+    seleccion={}
     mutexRed = Lock()
     mutexArchivo = Lock()
     #archivos locales
@@ -320,35 +320,32 @@ if __name__ == '__main__':
     masterTelnet = socket.socket()
     masterTelnet.bind(("", 2025))
     masterTelnet.listen()
-    sktTelnet,addr =masterTelnet.accept()
-
-
-
-
-
-
-
+    
 
     salir = False
-    while (not salir):
+    while 1: #ES UN DAEMON
+        sktTelnet,addr =masterTelnet.accept()
+        while (not salir):
 
-        print("Bienvenido a TorrentFing")
-        print("1-Ver archivos disponibles")
-        print("2-Descargar archivo")
-        print("3-Compartir archivo")
-        print("--Cualquier otra cosa para salir---")
+            sendTelnetResponse("Bienvenido a TorrentFing ingrese alguno de los siguientes comandos :")
+            sendTelnetResponse("- offer <filename>")
+            sendTelnetResponse("- get <fileid>")
+            sendTelnetResponse("- list")
+            sendTelnetResponse("- exit")
 
-        accion = input()
+            comando = getTelnetCommand()
 
-        if (accion == "1"):
-            verCompartidos()
-        else:
-            if (accion == "2"):
-                print(2)
+            if (comando == "list"):
+                verCompartidos()
             else:
-                if (accion == "3"):
-                    print("Indique nombre del archivo que desea ofrecer:\n")
-                    nombreA = input()
-                    ofrecer(nombreA)
+                if (comando[0:len("get")] == "get"):
+                    getFile(comando[len("get "):])
                 else:
-                    salir = True
+                    if (comando[0:len("offer")] == "offer"):
+                        nombreA = comando[len("offer "):]
+                        ofrecer(nombreA)
+                    else:
+                        if (comando == "exit"):
+                            sktTelnet.close
+                            salir =True
+        
