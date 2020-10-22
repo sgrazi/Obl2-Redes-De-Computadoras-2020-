@@ -263,14 +263,15 @@ def ofrecer(nombreA): #añade un archivo local a los announce
         archivosLocales[md5(pathToFile)] = [nombreA,os.path.getsize(pathToFile)]
 
 def getTelnetCommand():
-    comando=b''
-    char=b''
+    char =sktTelnet.recv(1)
+    comando=char.decode("unicode_escape")
     while 1:
-        char =sktTelnet.recv(2)
-        if char.decode("unicode_escape")=="\r\n":
-            print ("commando:"+comando.decode("unicode_escape")+"|")
-            return (comando.decode("unicode_escape"))
-        comando+=char
+        char =sktTelnet.recv(1)
+        print(char.decode("unicode_escape"))
+        if char.decode("unicode_escape")=="\n":
+            print ("comando:"+comando+":")
+            return comando[:-1] #sacamos el \r
+        comando+=char.decode("unicode_escape")
             
 
 def sendTelnetResponse(msg): #msg es un String
@@ -325,9 +326,18 @@ if __name__ == '__main__':
     salir = False
     while 1: #ES UN DAEMON
         sktTelnet,addr =masterTelnet.accept()
-        while (not salir):
+        negociacionTelnet =sktTelnet.recv(100)
+        salir=False
 
-            sendTelnetResponse("Bienvenido a TorrentFing ingrese alguno de los siguientes comandos :")
+        sendTelnetResponse("     ______                           __     _______            ")
+        sendTelnetResponse("    /_  __/___  _____________  ____  / /_   / ____(_)___  ____ _")
+        sendTelnetResponse("     / / / __ \/ ___/ ___/ _ \/ __ \/ __/  / /_  / / __ \/ __ `/")
+        sendTelnetResponse("    / / / /_/ / /  / /  /  __/ / / / /_   / __/ / / / / / /_/ / ")
+        sendTelnetResponse("   /_/  \____/_/  /_/   \___/_/ /_/\__/  /_/   /_/_/ /_/\__, / " )
+        sendTelnetResponse("                                                      /____/   ®")
+        sendTelnetResponse("Bienvenido a TorrentFing ingrese alguno de los siguientes comandos :\n")
+        while (not salir):
+            sendTelnetResponse("---- Comandos ----")
             sendTelnetResponse("- offer <filename>")
             sendTelnetResponse("- get <fileid>")
             sendTelnetResponse("- list")
@@ -348,4 +358,6 @@ if __name__ == '__main__':
                         if (comando == "exit"):
                             sktTelnet.close
                             salir =True
+                        else:
+                            sendTelnetResponse("el comando \'"+comando+"\' no existe" )
         
