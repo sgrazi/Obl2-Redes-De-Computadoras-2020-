@@ -30,13 +30,21 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
     filePath =os.getcwd()+os.sep+'Archivos'+os.sep+archivosLocales[md5][0]
     mutexLocales.release() #liberamos archivosLocales
-    with open(filePath, "rb") as f:
-        f.seek(start, 0)
-        piece = f.read(size)
-        piece = "DOWNLOAD OK\n".encode() + piece
-        sktDescarga.sendall(piece)  
-        print("la mando")
-        sktDescarga.close()
+    fileSize = os.path.getsize(filePath)
+    if os.path.isfile(filePath): #Si existe el archivo
+        if start.isDigit() and size.isDigit() and start>=0 and size>0 and start<fileSize and size<fileSize:
+            with open(filePath, "rb") as f:
+                f.seek(start, 0)
+                piece = f.read(size)
+                piece = "DOWNLOAD OK\n".encode() + piece
+        else:
+             piece = "DOWNLOAD FAILURE\BAD REQUEST\n".encode()
+    else:
+        piece = "DOWNLOAD FAILURE\nMISSING\n".encode()
+
+    sktDescarga.sendall(piece)  
+    print("la mando")
+    sktDescarga.close()
 
 def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompartidos para descargar
     #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
@@ -250,10 +258,19 @@ def ofrecer(nombreA): #añade un archivo local a los announce
     if(os.path.isfile(pathToFile)):
         archivosLocales[md5(pathToFile)] = [nombreA,os.path.getsize(pathToFile)]
 
+def getTelnetCommand():
+    comando=b''
+    char=b''
+    while 1:
+        char =sktTelnet.recv(10)
+        if char.decode("unicode_escape")=="\r\n":
+            return (comando.decode("unicode_escape"))
+        comando+=char
+            
 
-
-
-  
+def sendTelnetResponse(msg): #msg es un String
+        retorno=msg.encode("unicode_escape")+"\r\n".encode("unicode_escape")
+        sktTelnet.sendall(retorno) 
 
 
 
@@ -278,6 +295,10 @@ if __name__ == '__main__':
     archivosLocales = {} #md5 : FileName , tamaño 
     mutexLocales = Lock()
 
+
+
+
+
     #Request inicial
     scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
     
@@ -287,6 +308,19 @@ if __name__ == '__main__':
         _thread.start_new_thread(recibirAnuncios,(scktEscuchaUDP, ))
     except:
         print ("Error: unable to start thread")
+
+    #telnet socket
+    masterTelnet = socket.socket()
+    masterTelnet.bind(("", 2025))
+    masterTelnet.listen()
+    sktTelnet,addr =masterTelnet.accept()
+
+
+
+
+
+
+
 
     salir = False
     while (not salir):
