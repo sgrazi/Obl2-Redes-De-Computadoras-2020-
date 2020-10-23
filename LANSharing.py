@@ -244,10 +244,8 @@ def getFile(nroArchivo):
             
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
             
-
-            if (math.floor(tamArchivo/cantPieces) > tamMinPiece):
-                tamPieces=math.floor(tamArchivo/cantPieces)
-            else:
+            tamPieces=math.floor(tamArchivo/cantPieces)
+            if (math.floor(tamArchivo/cantPieces) < tamMinPiece):
                 if (tamArchivo<tamPieces):
                     tamPieces=tamArchivo
                 else:
