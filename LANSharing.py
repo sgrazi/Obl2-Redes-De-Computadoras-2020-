@@ -154,7 +154,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if addr[0]!=socket.gethostbyname(dirMartin) or addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) : #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
+        if  addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) : #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -171,7 +171,7 @@ def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archiv
     while True:
         mensaje,addr = scktEscucha.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if addr[0]!=socket.gethostbyname(dirMartin) or addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) :  #no queremos escuchar nuestros propios mensajes en hamachi
+        if addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) :  #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="ANNOUNCE"):
