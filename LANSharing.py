@@ -61,23 +61,23 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
             break
         buf += newbuf
         totalSize -= len(newbuf)
-
+    
     sktSeeder.close()
     if buf[0:len("DOWNLOAD OK\n")].decode() == 'DOWNLOAD OK\n' and acceptedPieces>=0: #nos llegó bien y por ahora no hay errores
-        buf=buf[12:] #stripeamos download ok
-        acceptedPieces+=1
+        buf=buf[len("DOWNLOAD OK\n"):] #stripeamos download ok
+        #print(buf.decode())
         mutexArchivo.acquire()
         with open(pathfile, "wb") as f:
             f.seek(offset, 0)
             f.write(buf)
             f.close()
+        acceptedPieces+=1
         mutexArchivo.release()
-        
-
-    if buf[0:len("DOWNLOAD FAILURE\n")].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
-        acceptedPieces=-1
-        sendTelnetResponse(buf[len("DOWNLOAD FAILURE\n"):].decode())
-        #print("error en descarga")
+    else:   
+        if buf[0:len("DOWNLOAD FAILURE\n")].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
+            acceptedPieces=-1
+            sendTelnetResponse(buf[len("DOWNLOAD FAILURE\n"):].decode())
+            #print("error en descarga")
     
    
 
@@ -194,16 +194,17 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
     mutexRed.acquire()
     nombres=""
     for archivo in archivosDeRed: #archivo=MD5=key
-        seleccion[i]=archivo
-        nombres=""
-        for IP in archivosDeRed[archivo][Seeders]: #listamos todos los nombres DISTINTOS del archivo
-            nombre=archivosDeRed[archivo][Seeders][IP][fileName]
-            if(nombre not in nombresExistentes): #Verificamos que sean distintos
-                nombres=nombres+nombre+" "
-                nombresExistentes.append(nombre)
-        sendTelnetResponse(str(i)+" - "+str(archivosDeRed[archivo][0])+" "+nombres) #0=fileSize
-        nombresExistentes.clear()    
-        i+=1
+        if archivo not in archivosLocales: #no vamos a dar la opción de descargar los archivos que ya tenemos
+            seleccion[i]=archivo
+            nombres=""
+            for IP in archivosDeRed[archivo][Seeders]: #listamos todos los nombres DISTINTOS del archivo
+                nombre=archivosDeRed[archivo][Seeders][IP][fileName]
+                if(nombre not in nombresExistentes): #Verificamos que sean distintos
+                    nombres=nombres+nombre+" "
+                    nombresExistentes.append(nombre)
+            sendTelnetResponse(str(i)+" - "+str(archivosDeRed[archivo][0])+" "+nombres) #0=fileSize
+            nombresExistentes.clear()    
+            i+=1
     mutexRed.release()
 
 def getFile(nroArchivo):
@@ -220,8 +221,9 @@ def getFile(nroArchivo):
             sendTelnetResponse("Ingrese nombre y extensión para el archivo a descargar:")
             nombreDelArchivoNuevo=getTelnetCommand()
             pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo
-            with open(pathfile,"wb+") as f: # open for [w]riting as [b]inary
-                f.seek(tamArchivo-1)
+            puntero=tamArchivo-1
+            with open(pathfile,"wb+") as f: #tamArchivo
+                f.seek(puntero)
                 f.write(b"\0")#encode lo pasa a bytes
                 f.close()
 
