@@ -18,9 +18,8 @@ fileMd5=2
 
 tamMinPiece=1024
 
-maxSegmentUDP=len("ANNOUNCE\n")+53#65535
-#tamaño de bloquen de distribución 256kb
-tamDeBloque=256*1000
+maxSegmentUDP=len("ANNOUNCE\n")+65535
+
 #Posiciones en los diccionarios
 Seeders=1
 seleccion = {} #lista para descargar disponibles
@@ -57,10 +56,12 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
     buf = b''
     global acceptedPieces
     #print("iniciando descarga")
-    while totalSize:
-        newbuf = sktSeeder.recv(totalSize)
-        #print("recibido: "+str(len(newbuf))+"bytes")
-        #print("newbuf: "+newbuf.decode()+":")
+    maxBytes=100000 #100.000
+    if totalSize<maxBytes:
+        maxBytes=totalSize
+    while totalSize>0:
+        newbuf = sktSeeder.recv(maxBytes) #es posible recibir menos q maxBytes
+        print("recibido: "+str(len(newbuf))+"bytes")
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
             break
         buf += newbuf
@@ -172,7 +173,7 @@ def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archiv
     while True:
         mensaje,addr = scktEscucha.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) :  #no queremos escuchar nuestros propios mensajes en hamachi
+        if addr[0]!=socket.gethostbyname(myIP) and addr[0]!=socket.gethostbyname(socket.gethostname()) :  #no queremos escuchar nuestros propios mensajes en hamachi
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="ANNOUNCE"):
@@ -245,14 +246,19 @@ def getFile(nroArchivo):
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
             
             tamPieces=math.floor(tamArchivo/cantPieces)
-            if (math.floor(tamArchivo/cantPieces) < tamMinPiece):
-                if (tamArchivo<tamPieces):
+            if (tamPieces < tamMinPiece):
+                print(str(math.floor(1)))
+                print(str(tamArchivo)+"<"+str(tamPieces))
+                if (tamArchivo<=tamPieces):
                     tamPieces=tamArchivo
                 else:
                     tamPieces = tamMinPiece
                 cantPieces = math.floor(tamArchivo/tamPieces)
-                
-           
+
+            print("tamArchivo: "+str(tamArchivo))
+            print("tamPieces: "+str(tamPieces))  
+            print("cantPieces: "+str(cantPieces))
+            print("---------------------------")
             ultimaVuelta=False
             #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
             offset = 0
@@ -270,7 +276,7 @@ def getFile(nroArchivo):
                 sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
                 sktSeeder.send(anuncioDescarga.encode())
                 try:
-                    _thread.start_new_thread(recibirDescarga,(sktSeeder,offset,tamPieces+len("DOWNLOAD OK\n"),pathfile))#recibirDescarga guarda en el archivo  previamente creado
+                    _thread.start_new_thread(recibirDescarga,(sktSeeder,offset,len("DOWNLOAD OK\n")+tamPieces,pathfile))#recibirDescarga guarda en el archivo  previamente creado
                 except:
                     print ("Error: unable to start thread")
                     acceptedPieces=-1
@@ -376,6 +382,7 @@ if __name__ == '__main__':
         #Request inicial de conexión
         scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
         while (not salir):
+            sendTelnetResponse("")
             sendTelnetResponse("---- Comandos ----")
             sendTelnetResponse("- offer <filename>")
             sendTelnetResponse("- get <fileid>")
@@ -406,4 +413,4 @@ if __name__ == '__main__':
                                 myIP = getTelnetCommand()
                             else:
                                 sendTelnetResponse("el comando \'"+comando+"\' no existe" )
-            sendTelnetResponse("")
+            
