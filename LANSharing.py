@@ -16,6 +16,8 @@ ttl=1
 fileSize=1
 fileMd5=2
 
+tamMinPiece=1024
+
 maxSegmentUDP=len("ANNOUNCE\n")+53#65535
 #tamaño de bloquen de distribución 256kb
 tamDeBloque=256*1000
@@ -152,7 +154,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
         print("solicitud de conexion de:"+addr[0])
         mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        if addr[0]!=socket.gethostbyname(dirMartin) or addr[0]!=socket.gethostbyname(socket.gethostname()): #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
+        if addr[0]!=socket.gethostbyname(dirMartin) or addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) : #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
@@ -165,11 +167,12 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
            
 
 def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archivos
+    global myIP
     while True:
         mensaje,addr = scktEscucha.recvfrom(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
-        #if(addr[0]!=socket.gethostbyname(dirStefa)): #no queremos escuchar nuestros propios mensajes en hamachi
-        lineas=re.split(r'\n+', mensaje.decode())
+        if addr[0]!=socket.gethostbyname(dirMartin) or addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) :  #no queremos escuchar nuestros propios mensajes en hamachi
+            lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="ANNOUNCE"):
             iterLinea = iter(lineas)
@@ -237,15 +240,27 @@ def getFile(nroArchivo):
                 f.seek(puntero,0)
                 f.write(b"\0")#encode lo pasa a bytes
                 f.seek(0,0)
+            
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
-            tamPieces=math.floor(tamArchivo/cantPieces)
+            if (math.floor(tamArchivo/cantPieces) > tamMinPiece):
+                tamPieces=math.floor(tamArchivo/cantPieces)
+            else:
+                tamPieces = tamMinPiece
+                cantPieces = math.floor(tamArchivo/tamPieces)
+                
+            if (tamArchivo<tamPieces):
+                tamPieces=tamArchivo
+            ultimaVuelta=False
             #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
             offset = 0
             global acceptedPieces
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key   
-                if(IP==len(archivosDeRed[selectedFileMd5][Seeders])-1): #es el último seeder, le corresponde una pieza más grande generalmente
+                if( IP==len(archivosDeRed[selectedFileMd5][Seeders])-1 or (offset+2*tamPieces)>tamArchivo): #es el último seeder, le corresponde una pieza más grande generalmente
                     tamPieces=tamPieces+ (tamPieces % cantPieces )
+                    ultimaVuelta=True
                     #sendTelnetResponse("tamaño de pieza final : "+str(tamPieces))
+                
+
                 anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamPieces)+"\n" #start=0 size=0 etapa de testing
                 sktSeeder = socket.socket()
                 #sendTelnetResponse("Intentando conectar con: "+str(IP) )
@@ -256,6 +271,8 @@ def getFile(nroArchivo):
                 except:
                     print ("Error: unable to start thread")
                     acceptedPieces=-1
+                if ultimaVuelta:
+                    break
                 offset +=tamPieces
 
             mutexRed.release()   
@@ -360,6 +377,7 @@ if __name__ == '__main__':
             sendTelnetResponse("- offer <filename>")
             sendTelnetResponse("- get <fileid>")
             sendTelnetResponse("- list")
+            sendTelnetResponse("- hamachi")
             sendTelnetResponse("- exit")
 
             comando = getTelnetCommand()
@@ -378,5 +396,11 @@ if __name__ == '__main__':
                             sktTelnet.close()
                             salir =True
                         else:
-                            sendTelnetResponse("el comando \'"+comando+"\' no existe" )
-        
+                            if comando == "hamachi":
+                                sendTelnetResponse("Ingrese la dirección de Broadcast de la red hamachi")
+                                dirBroadcast = getTelnetCommand()
+                                sendTelnetResponse("Ahora su dirección IP de host")
+                                myIP = getTelnetCommand()
+                            else:
+                                sendTelnetResponse("el comando \'"+comando+"\' no existe" )
+            sendTelnetResponse("")
