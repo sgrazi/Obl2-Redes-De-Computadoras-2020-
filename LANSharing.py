@@ -16,6 +16,7 @@ ttl=1
 fileSize=1
 fileMd5=2
 
+maxSegmentUDP=len("ANNOUNCE\n")+53#65535
 #tamaño de bloquen de distribución 256kb
 tamDeBloque=256*1000
 #Posiciones en los diccionarios
@@ -48,15 +49,15 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
     #print("la mando")
     sktDescarga.close()
 
-def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompartidos para descargar
+def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompartidos para descargar totalSize=pieceSize+DownloadOK\nsize
     #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
     buf = b''
     global acceptedPieces
     #print("iniciando descarga")
     while totalSize:
-        #print("recibiendo pedazo")
         newbuf = sktSeeder.recv(totalSize)
-        #print("recibido:"+str(len(newbuf))+"bytes")
+        #print("recibido: "+str(len(newbuf))+"bytes")
+        #print("newbuf: "+newbuf.decode()+":")
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
             break
         buf += newbuf
@@ -65,14 +66,14 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
     sktSeeder.close()
     if buf[0:len("DOWNLOAD OK\n")].decode() == 'DOWNLOAD OK\n' and acceptedPieces>=0: #nos llegó bien y por ahora no hay errores
         buf=buf[len("DOWNLOAD OK\n"):] #stripeamos download ok
-        #print(buf.decode())
         mutexArchivo.acquire()
-        with open(pathfile, "wb") as f:
+        with open(pathfile, "rb+") as f:
+            print("ofsset: "+str(offset))
             f.seek(offset, 0)
             f.write(buf)
-            f.close()
-        acceptedPieces+=1
+            f.seek(0,0)
         mutexArchivo.release()
+        acceptedPieces+=1
     else:   
         if buf[0:len("DOWNLOAD FAILURE\n")].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
             acceptedPieces=-1
@@ -100,12 +101,22 @@ def generarAnuncio(): #genera a un anuncio, lo llama enviarAnuncios
 def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos locales
     global seleccion
     while True:
-        time.sleep(10)#30 seg
+        time.sleep(30)#30 seg
         print("---------------anunciandooooo----------------")
         time.sleep(random.uniform(0.5,1))
        
         if( bool(archivosLocales)): #archivosLocales no vacíos
             anuncio=generarAnuncio()
+            while len(anuncio)>maxSegmentUDP:
+                i=1
+                pedazoAnuncio=anuncio[0:maxSegmentUDP-i]
+                while pedazoAnuncio[-1:]!="\n": #se acomoda hasta encontrar un \n
+                    i+=1
+                    pedazoAnuncio=anuncio[0:maxSegmentUDP-i]
+                    
+                anuncio= "ANNOUNCE\n"+anuncio[maxSegmentUDP-i:]
+                scktAnuncio.sendto((pedazoAnuncio).encode(),(dirBroadcast,2020))
+                time.sleep(random.uniform(0.5,1))
             scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
 
         #Actualización TTL
@@ -173,14 +184,14 @@ def recibirAnuncios(scktEscucha): #hilo permanente que recibe anuncios de archiv
                     else:#agregar nuevo archivo
                         archivosDeRed[datos[fileMd5]]=[int(datos[fileSize]),{addr[0]:[datos[fileName],3]}]
                     mutexRed.release()
-
-        if(lineas[0]=="REQUEST"):
-            anuncio=generarAnuncio()
-            scktAnuncio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-            scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            time.sleep(random.uniform(0,5))
-            scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
-    
+        else:
+            if(lineas[0]=="REQUEST"):
+                anuncio=generarAnuncio()
+                scktAnuncio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+                scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                time.sleep(random.uniform(0,5))
+                scktAnuncio.sendto((anuncio).encode(),(dirBroadcast,2020))
+        
       
 
 
@@ -223,10 +234,9 @@ def getFile(nroArchivo):
             pathfile = os.getcwd()+os.sep+'Archivos'+os.sep+nombreDelArchivoNuevo
             puntero=tamArchivo-1
             with open(pathfile,"wb+") as f: #tamArchivo
-                f.seek(puntero)
+                f.seek(puntero,0)
                 f.write(b"\0")#encode lo pasa a bytes
-                f.close()
-
+                f.seek(0,0)
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
             tamPieces=math.floor(tamArchivo/cantPieces)
             #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
