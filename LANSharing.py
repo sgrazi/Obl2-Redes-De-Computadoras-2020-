@@ -29,6 +29,7 @@ acceptedPieces=0 #variable paraz coordinar entre hilos las piezas aceptadas
 dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
+myIP="0.0.0.0"
 dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
 
 def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudesDeDescarga, acepta solicitud de descarga y la envia
