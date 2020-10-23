@@ -1,6 +1,6 @@
 import socket
 import time
-import struct #para obtener la ip de Hamachi
+import struct 
 #import fcntl    #para obtener la ip de Hamachi
 import math
 import _thread 
@@ -30,7 +30,7 @@ dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
 myIP=socket.gethostbyname(socket.gethostname())
-dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
+dirBroadcast= "255.255.255.255"
 
 def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudesDeDescarga, acepta solicitud de descarga y la envia
     mutexLocales.acquire() #mutuoexcluimos archivosLocales
@@ -243,14 +243,16 @@ def getFile(nroArchivo):
                 f.seek(0,0)
             
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
+            if (tamArchivo<tamPieces):
+                tamPieces=tamArchivo
+
             if (math.floor(tamArchivo/cantPieces) > tamMinPiece):
                 tamPieces=math.floor(tamArchivo/cantPieces)
             else:
                 tamPieces = tamMinPiece
                 cantPieces = math.floor(tamArchivo/tamPieces)
                 
-            if (tamArchivo<tamPieces):
-                tamPieces=tamArchivo
+           
             ultimaVuelta=False
             #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
             offset = 0
