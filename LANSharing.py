@@ -29,7 +29,7 @@ acceptedPieces=0 #variable paraz coordinar entre hilos las piezas aceptadas
 dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
-myIP="0.0.0.0"
+myIP=socket.gethostbyname(socket.gethostname())
 dirBroadcast= "25.255.255.255" #Broadcast de Hamachi, el real es 255.255.255.255
 
 def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudesDeDescarga, acepta solicitud de descarga y la envia
@@ -378,7 +378,7 @@ if __name__ == '__main__':
             sendTelnetResponse("- offer <filename>")
             sendTelnetResponse("- get <fileid>")
             sendTelnetResponse("- list")
-            sendTelnetResponse("- hamachi")
+            sendTelnetResponse("- config")
             sendTelnetResponse("- exit")
 
             comando = getTelnetCommand()
@@ -397,8 +397,8 @@ if __name__ == '__main__':
                             sktTelnet.close()
                             salir =True
                         else:
-                            if comando == "hamachi":
-                                sendTelnetResponse("Ingrese la dirección de Broadcast de la red hamachi")
+                            if comando == "config":
+                                sendTelnetResponse("Ingrese la dirección de Broadcast de la red")
                                 dirBroadcast = getTelnetCommand()
                                 sendTelnetResponse("Ahora su dirección IP de host")
                                 myIP = getTelnetCommand()
