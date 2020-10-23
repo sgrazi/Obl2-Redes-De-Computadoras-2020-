@@ -104,7 +104,7 @@ def generarAnuncio(): #genera a un anuncio, lo llama enviarAnuncios
 def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos locales
     global seleccion
     while True:
-        time.sleep(30)#30 seg
+        time.sleep(10)#30 seg
         print("---------------anunciandooooo----------------")
         time.sleep(random.uniform(0.5,1))
        
@@ -243,13 +243,15 @@ def getFile(nroArchivo):
                 f.seek(0,0)
             
             cantPieces=len(archivosDeRed[selectedFileMd5][Seeders]) #se le pedirá un pedazo a cada seeder
-            if (tamArchivo<tamPieces):
-                tamPieces=tamArchivo
+            
 
             if (math.floor(tamArchivo/cantPieces) > tamMinPiece):
                 tamPieces=math.floor(tamArchivo/cantPieces)
             else:
-                tamPieces = tamMinPiece
+                if (tamArchivo<tamPieces):
+                    tamPieces=tamArchivo
+                else:
+                    tamPieces = tamMinPiece
                 cantPieces = math.floor(tamArchivo/tamPieces)
                 
            
