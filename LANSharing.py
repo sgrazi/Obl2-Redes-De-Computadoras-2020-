@@ -1,7 +1,8 @@
+
 import socket
 import time
 import struct 
-#import fcntl    #para obtener la ip de Hamachi
+import time
 import math
 import _thread 
 import hashlib  #md5
@@ -164,7 +165,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
     while True:
         cliente,addr =scktEscucha.accept()
         print("solicitud de conexion de:"+addr[0])
-        mensaje = cliente.recv(1024) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
+        mensaje = cliente.recv(maxSegmentUDP) #escucha con un buffer de 1024bytes(1024 chars) en el 2020
         lineas=["SinLectura"]
         if  addr[0]!=socket.gethostbyname(myIP) or addr[0]!=socket.gethostbyname(socket.gethostname()) : #no queremos escuchar nuestros propios mensajes en hamachi ni socket.gethostname()
             lineas=re.split(r'\n+', mensaje.decode())
@@ -276,7 +277,9 @@ def getFile(nroArchivo):
             ultimaVuelta=False
             #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
             offset = 0
-           
+        
+
+            start = time.time()  
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key   
                 if( IP==len(archivosDeRed[selectedFileMd5][Seeders])-1 or (offset+2*tamPieces)>tamArchivo): #es el último seeder, le corresponde una pieza más grande generalmente
                     tamPieces=tamPieces+ (tamPieces % cantPieces )
@@ -309,8 +312,10 @@ def getFile(nroArchivo):
                         os.remove(pathfile)
                     break
                 
-           
+            end = time.time()
             sendTelnetResponse(" --- Fin de descarga --- ") 
+            sendTelnetResponse("Tiempo total de descarga : "+str(end - start))
+            sendTelnetResponse("Promedio MBytes/seg: "+str( float((tamArchivo/(end-start))/(1024*2014)   ))
             bytesDescargados=0
             ofrecer(nombreDelArchivoNuevo)
             acceptedPieces=0
