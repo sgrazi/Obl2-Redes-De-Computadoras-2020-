@@ -315,7 +315,7 @@ def getFile(nroArchivo):
             end = time.time()
             sendTelnetResponse(" --- Fin de descarga --- ") 
             sendTelnetResponse("Tiempo total de descarga : "+str(end - start))
-            sendTelnetResponse("Promedio MBytes/seg: "+str( float((tamArchivo/(end-start))/(1024*2014)   ))
+            sendTelnetResponse("Promedio MBytes/seg: "+str( float((tamArchivo/(end-start))/(1024*2014)) ))
             bytesDescargados=0
             ofrecer(nombreDelArchivoNuevo)
             acceptedPieces=0
