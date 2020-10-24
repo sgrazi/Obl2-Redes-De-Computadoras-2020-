@@ -126,8 +126,8 @@ def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos
         #Actualización TTL
         
         mutexRed.acquire() 
-        print(archivosDeRed)
-        print(seleccion)
+        print("Red:" archivosDeRed)
+        print("Locales:"archivosLocales)
         seedersABorrar=[]
         archivosABorrar=[]
         for archivo in archivosDeRed: #archivo=MD5=key
