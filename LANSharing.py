@@ -23,7 +23,7 @@ maxSegmentUDP=len("ANNOUNCE\n")+65535
 #Posiciones en los diccionarios
 Seeders=1
 seleccion = {} #lista para descargar disponibles
-
+bytesDescargados = 0
 acceptedPieces=0 #variable paraz coordinar entre hilos las piezas aceptadas
 dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
@@ -78,6 +78,7 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
             f.seek(0,0)
         mutexArchivo.release()
         acceptedPieces+=1
+        bytesDescargados+=len(buf)
     else:   
         if buf[0:len("DOWNLOAD FAILURE\n")].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
             acceptedPieces=-1
@@ -126,8 +127,8 @@ def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos
         #Actualización TTL
         
         mutexRed.acquire() 
-        print("Red:" archivosDeRed)
-        print("Locales:"archivosLocales)
+        print(archivosDeRed)
+        print(archivosLocales)
         seedersABorrar=[]
         archivosABorrar=[]
         for archivo in archivosDeRed: #archivo=MD5=key
@@ -286,13 +287,17 @@ def getFile(nroArchivo):
 
             mutexRed.release()   
             while(acceptedPieces!=cantPieces):
+                sendTelnetResponse("Porcentaje de descarga: "+str(cantPieces/acceptedPieces)*100)
+                sendTelnetResponse("Byes descargados: "+str(bytesDescargados))
                 if(acceptedPieces==-1):
                     sendTelnetResponse(" --- Ocurrió un error en alguna descarga --- ")
                     if os.path.isfile(pathfile):
                         os.remove(pathfile)
                     break
-
+                
+           
             sendTelnetResponse(" --- Fin de descarga --- ") 
+            bytesDescargados=0
             ofrecer(nombreDelArchivoNuevo)
             acceptedPieces=0
         else:
