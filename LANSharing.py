@@ -290,6 +290,7 @@ def getFile(nroArchivo):
 
             mutexRed.release()   
             while(acceptedPieces!=cantPieces):
+                time.sleep(10)#30 seg
                 sendTelnetResponse("Porcentaje de descarga: "+str(acceptedPieces/cantPieces)*100)
                 sendTelnetResponse("Byes descargados: "+str(bytesDescargados))
                 if(acceptedPieces==-1):
