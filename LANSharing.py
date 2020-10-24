@@ -163,7 +163,7 @@ def recibirSolicitudesDeDescargas(scktEscucha): #hilo permanente que recibe soli
             lineas=re.split(r'\n+', mensaje.decode())
 
         if(lineas[0]=="DOWNLOAD"):
-            print("solicitud de descarga de:"+addr[0]+"del archivoMD5:"+lineas[1])
+            print("solicitud de descarga de:"+addr[0]+"del archivo MD5 :"+lineas[1])
 
             try:
                 _thread.start_new_thread(aceptarDescarga,(lineas[1],lineas[2],lineas[3],cliente))
@@ -230,6 +230,7 @@ def getFile(nroArchivo):
     if nroArchivo.isdigit():
         global seleccion
         global bytesDescargados
+        global acceptedPieces
         if int(nroArchivo) in seleccion:
             selectedFileMd5=seleccion[int(nroArchivo)]
             sendTelnetResponse("---Enviando Anuncio de descarga----")
@@ -266,7 +267,7 @@ def getFile(nroArchivo):
             ultimaVuelta=False
             #sendTelnetResponse("tamaño de pieza : "+str(tamPieces))
             offset = 0
-            global acceptedPieces
+           
             for IP in archivosDeRed[selectedFileMd5][Seeders]: # IP=key   
                 if( IP==len(archivosDeRed[selectedFileMd5][Seeders])-1 or (offset+2*tamPieces)>tamArchivo): #es el último seeder, le corresponde una pieza más grande generalmente
                     tamPieces=tamPieces+ (tamPieces % cantPieces )
@@ -290,8 +291,8 @@ def getFile(nroArchivo):
 
             mutexRed.release()   
             while(acceptedPieces!=cantPieces):
-                time.sleep(10)#30 seg
-                sendTelnetResponse("Porcentaje de descarga: "+str(acceptedPieces/cantPieces)*100)
+                time.sleep(30)#30 seg
+                sendTelnetResponse("Porcentaje de descarga: "+str( (acceptedPieces/cantPieces)*100) )
                 sendTelnetResponse("Byes descargados: "+str(bytesDescargados))
                 if(acceptedPieces==-1):
                     sendTelnetResponse(" --- Ocurrió un error en alguna descarga --- ")
