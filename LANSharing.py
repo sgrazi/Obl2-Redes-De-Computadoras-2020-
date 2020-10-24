@@ -24,8 +24,7 @@ maxSegmentUDP=65527-len("ANNOUNCE\n") #maximo segmento de announce posible
 #Posiciones en los diccionarios
 Seeders=1
 seleccion = {} #lista para descargar disponibles
-bytesDescargados = 0
-acceptedPieces=0 #variable paraz coordinar entre hilos las piezas aceptadas
+
 dirStefa="25.96.130.128"
 dirFran= "25.92.62.202"
 dirMartin= "25.91.200.244"
@@ -55,15 +54,16 @@ def aceptarDescarga(md5,start,size,sktDescarga): #llamado por recibirSolicitudes
 def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompartidos para descargar totalSize=pieceSize+DownloadOK\nsize
     #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
     buf = b''
+    #print("iniciando descarga")
     global acceptedPieces
     global bytesDescargados
-    #print("iniciando descarga")
     maxBytes=100000 #100.000
     if totalSize<maxBytes:
         maxBytes=totalSize
     while totalSize>0:
         newbuf = sktSeeder.recv(maxBytes) #es posible recibir menos q maxBytes
         print("recibido: "+str(len(newbuf))+"bytes")
+        bytesDescargados+=len(newbuf)
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
             break
         buf += newbuf
@@ -80,7 +80,7 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
             f.seek(0,0)
         mutexArchivo.release()
         acceptedPieces+=1
-        bytesDescargados+=len(buf)
+       
     else:   
         if buf[0:len("DOWNLOAD FAILURE\n")].decode() == 'DOWNLOAD FAILURE\n': #nos llegó mal por
             acceptedPieces=-1
@@ -227,15 +227,17 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
     mutexRed.release()
 
 def getFile(nroArchivo):
+    
     if nroArchivo.isdigit():
-        global seleccion
         global bytesDescargados
         global acceptedPieces
+        bytesDescargados=0
+        acceptedPieces=0
         if int(nroArchivo) in seleccion:
             selectedFileMd5=seleccion[int(nroArchivo)]
             sendTelnetResponse("---Enviando Anuncio de descarga----")
             #se tendría que iterar entre seeders
-           
+
             mutexRed.acquire()
             tamArchivo=archivosDeRed[selectedFileMd5][0] #0=fileSize
             #creamos el archivo vacío
@@ -274,7 +276,6 @@ def getFile(nroArchivo):
                     ultimaVuelta=True
                     #sendTelnetResponse("tamaño de pieza final : "+str(tamPieces))
                 
-
                 anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamPieces)+"\n" #start=0 size=0 etapa de testing
                 sktSeeder = socket.socket()
                 #sendTelnetResponse("Intentando conectar con: "+str(IP) )
@@ -290,10 +291,11 @@ def getFile(nroArchivo):
                 offset +=tamPieces
 
             mutexRed.release()   
+
             while(acceptedPieces!=cantPieces):
                 time.sleep(0.5)
-                sendTelnetResponse("Porcentaje de descarga: "+str( (acceptedPieces/cantPieces)*100) )
-                sendTelnetResponse("Byes descargados: "+str(bytesDescargados))
+                sendTelnetResponse("Porcentaje de descarga: "+str( float(bytesDescargados/tamArchivo)*100)[:5]+" %" )
+                sendTelnetResponse("Bytes descargados: "+str(bytesDescargados))
                 if(acceptedPieces==-1):
                     sendTelnetResponse(" --- Ocurrió un error en alguna descarga --- ")
                     if os.path.isfile(pathfile):
@@ -336,6 +338,7 @@ def sendTelnetResponse(msg): #msg es un String
 
 if __name__ == '__main__':
     
+
     #socketAnunciar
     scktAnuncio = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     scktAnuncio.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -357,9 +360,6 @@ if __name__ == '__main__':
     mutexLocales = Lock()
 
 
-
-
-
     #Request inicial
     scktAnuncio.sendto(("REQUEST\n").encode(),(dirBroadcast,2020))
     
@@ -374,6 +374,8 @@ if __name__ == '__main__':
     masterTelnet = socket.socket()
     masterTelnet.bind(("", 2025))
     masterTelnet.listen()
+    global bytesDescargados
+    global acceptedPieces
     
 
     salir = False
@@ -381,7 +383,6 @@ if __name__ == '__main__':
         sktTelnet,addr =masterTelnet.accept()
         negociacionTelnet =sktTelnet.recv(100)
         salir=False
-
         sendTelnetResponse("     ______                           __     _______            ")
         sendTelnetResponse("    /_  __/___  _____________  ____  / /_   / ____(_)___  ____ _")
         sendTelnetResponse("     / / / __ \/ ___/ ___/ _ \/ __ \/ __/  / /_  / / __ \/ __ `/")
@@ -407,6 +408,9 @@ if __name__ == '__main__':
             else:
                 if (comando[0:len("get")] == "get"):
                     getFile(comando[len("get "):])
+                    bytesDescargados = 0
+                    acceptedPieces =0
+                    
                 else:
                     if (comando[0:len("offer")] == "offer"):
                         nombreA = comando[len("offer "):]
