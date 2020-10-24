@@ -66,6 +66,14 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
         bytesDescargados+=len(newbuf)
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
             break
+        if(len(buf) > 100*1048576): #=100MB (PARA NO PASARNOS DE Bytes en Ram esperando para grabarse)
+
+            with open(pathfile, "rb+") as f:
+                f.seek(offset, 0)
+                f.write(buf[len("DOWNLOAD OK\n"):])
+            offset+=len(buf[len("DOWNLOAD OK\n"):])
+            buf=("DOWNLOAD OK\n").encode()
+
         buf += newbuf
         totalSize -= len(newbuf)
     
@@ -77,7 +85,6 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
             print("ofsset: "+str(offset))
             f.seek(offset, 0)
             f.write(buf)
-            f.seek(0,0)
         mutexArchivo.release()
         acceptedPieces+=1
        
