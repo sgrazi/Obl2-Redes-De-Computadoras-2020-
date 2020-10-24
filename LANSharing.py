@@ -5,6 +5,7 @@ import struct
 import math
 import _thread 
 import hashlib  #md5
+#nuevo comit
 import random   #espera aleatorea de tiempos
 import os  #chequear que existe un archivo
 import re #splitear los mensajes del protocolo separados por tabs y enters
@@ -18,7 +19,7 @@ fileMd5=2
 
 tamMinPiece=1024
 
-maxSegmentUDP=len("ANNOUNCE\n")+65535
+maxSegmentUDP=65527-len("ANNOUNCE\n") #maximo segmento de announce posible
 
 #Posiciones en los diccionarios
 Seeders=1
@@ -55,6 +56,7 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
     #se espera un DOWNLOAD OK\n, seguido de el bloque, (retorna en bytes)
     buf = b''
     global acceptedPieces
+    global bytesDescargados
     #print("iniciando descarga")
     maxBytes=100000 #100.000
     if totalSize<maxBytes:
@@ -227,6 +229,7 @@ def verCompartidos(): #invocado por el usuario con el comando 1, para ver los ar
 def getFile(nroArchivo):
     if nroArchivo.isdigit():
         global seleccion
+        global bytesDescargados
         if int(nroArchivo) in seleccion:
             selectedFileMd5=seleccion[int(nroArchivo)]
             sendTelnetResponse("---Enviando Anuncio de descarga----")
