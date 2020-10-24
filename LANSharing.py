@@ -108,7 +108,7 @@ def generarAnuncio(): #genera a un anuncio, lo llama enviarAnuncios
 def enviarAnuncios(scktAnuncio): #hilo permanente que envia anuncios de archivos locales
     global seleccion
     while True:
-        time.sleep(10)#30 seg
+        time.sleep(30)#30 seg
         print("---------------anunciandooooo----------------")
         time.sleep(random.uniform(0.5,1))
        
@@ -291,7 +291,7 @@ def getFile(nroArchivo):
 
             mutexRed.release()   
             while(acceptedPieces!=cantPieces):
-                time.sleep(30)#30 seg
+                time.sleep(1)
                 sendTelnetResponse("Porcentaje de descarga: "+str( (acceptedPieces/cantPieces)*100) )
                 sendTelnetResponse("Byes descargados: "+str(bytesDescargados))
                 if(acceptedPieces==-1):
