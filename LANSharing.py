@@ -6,7 +6,6 @@ import time
 import math
 import _thread 
 import hashlib  #md5
-#nuevo comit
 import random   #espera aleatorea de tiempos
 import os  #chequear que existe un archivo
 import re #splitear los mensajes del protocolo separados por tabs y enters
@@ -25,10 +24,6 @@ maxSegmentUDP=65527-len("ANNOUNCE\n") #maximo segmento de announce posible
 #Posiciones en los diccionarios
 Seeders=1
 seleccion = {} #lista para descargar disponibles
-
-dirStefa="25.96.130.128"
-dirFran= "25.92.62.202"
-dirMartin= "25.91.200.244"
 myIP=socket.gethostbyname(socket.gethostname())
 dirBroadcast= "255.255.255.255"
 
