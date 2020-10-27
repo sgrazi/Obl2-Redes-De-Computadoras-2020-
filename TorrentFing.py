@@ -61,6 +61,8 @@ def recibirDescarga(sktSeeder,offset,totalSize,pathfile): #llamado por verCompar
         print("recibido: "+str(len(newbuf))+"bytes")
         bytesDescargados+=len(newbuf)
         if not newbuf: #si no recibo más nada me voy (count>fileSize)
+            if(totalSize>0):
+                acceptedPieces=-1
             break
         if(len(buf) > 100*1048576): #=100MB (PARA NO PASARNOS DE Bytes en Ram esperando para grabarse)
 
@@ -284,12 +286,17 @@ def getFile(nroArchivo):
                 anuncioDescarga = "DOWNLOAD\n"+str(selectedFileMd5)+"\n"+ str(offset) +"\n"+str(tamPieces)+"\n" #start=0 size=0 etapa de testing
                 sktSeeder = socket.socket()
                 #sendTelnetResponse("Intentando conectar con: "+str(IP) )
-                sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
-                sktSeeder.send(anuncioDescarga.encode())
+                try:
+                    sktSeeder.connect((str(IP),2020)) #que conecte en el puerto que pueda (en manos del SO)
+                    sktSeeder.send(anuncioDescarga.encode())
+                except :
+                     print ("Error en la conexión con un seecer")
+                     acceptedPieces=-1
+
                 try:
                     _thread.start_new_thread(recibirDescarga,(sktSeeder,offset,len("DOWNLOAD OK\n")+tamPieces,pathfile))#recibirDescarga guarda en el archivo  previamente creado
                 except:
-                    print ("Error: unable to start thread")
+                    print ("Error en thread")
                     acceptedPieces=-1
                 if ultimaVuelta:
                     break
@@ -308,9 +315,12 @@ def getFile(nroArchivo):
                     break
                 
             end = time.time()
-            sendTelnetResponse(" --- Fin de descarga --- ") 
-            sendTelnetResponse("Tiempo total de descarga : "+str(end - start))
-            sendTelnetResponse("Promedio MBytes/seg: "+str( float((tamArchivo/(end-start))/(1024*2014)) ))
+            if( os.path.isfile(pathfile) && md5(pathfile)==selectedFileMd5):
+                sendTelnetResponse(" --- Fin de descarga --- ") 
+                sendTelnetResponse("Tiempo total de descarga : "+str(end - start))
+                sendTelnetResponse("Promedio MBytes/seg: "+str( float((tamArchivo/(end-start))/(1024*2014)) ))
+            else:
+                sendTelnetResponse(" Ocurrió un error en la descarga ") 
             bytesDescargados=0
             ofrecer(nombreDelArchivoNuevo)
             acceptedPieces=0
