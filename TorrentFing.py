@@ -315,7 +315,7 @@ def getFile(nroArchivo):
                     break
                 
             end = time.time()
-            if( os.path.isfile(pathfile) && md5(pathfile)==selectedFileMd5):
+            if( os.path.isfile(pathfile) and md5(pathfile)==selectedFileMd5):
                 sendTelnetResponse(" --- Fin de descarga --- ") 
                 sendTelnetResponse("Tiempo total de descarga : "+str(end - start))
                 sendTelnetResponse("Promedio MBytes/seg: "+str( float((tamArchivo/(end-start))/(1024*2014)) ))
